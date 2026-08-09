@@ -1,0 +1,16 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>OpenTalkType</title>
+        <item>
+            <title>0.0.1-test</title>
+            <pubDate>Sun, 09 Aug 2026 15:39:46 +0000</pubDate>
+            <sparkle:channel>beta</sparkle:channel>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.0.1-test</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/SammyLin/OpenTalkType/releases/download/v0.0.1-test/OpenTalkType-0.0.1-test.zip" length="2491316" type="application/octet-stream" sparkle:edSignature="LjPzjftRInngL0z/cF74f9z23KHWclh2GWo5eCWGLAhkmu1AY3WYt0lvifceyd4djwW+fwDm+HWbkIc8fbBNCg=="/>
+        </item>
+    </channel>
+</rss>
