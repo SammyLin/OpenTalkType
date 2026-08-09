@@ -402,8 +402,8 @@ final class Store: @unchecked Sendable {
             FROM modes ORDER BY position, rowid
             """) { s in
             out.append(Mode(id: Self.str(s, 0),
-                            displayName: Self.str(s, 1),
-                            subtitle: Self.str(s, 2),
+                            storedName: Self.str(s, 1),
+                            storedSubtitle: Self.str(s, 2),
                             sfSymbol: Self.str(s, 3),
                             prompt: Self.str(s, 4),
                             usesSelection: sqlite3_column_int(s, 5) != 0,
@@ -1475,7 +1475,7 @@ func selfTestStore(_ c: SelfTest.Check) {
           "expected a stored host of docs.google.com, got \(s.appRules().map(\.host))")
 
         // Modes carry a shell command, stored beside them and reachable through the record.
-        s.saveMode(Mode(id: "commit", displayName: "commit 訊息", subtitle: "", sfSymbol: "checkmark",
+        s.saveMode(Mode(id: "commit", storedName: "commit message", storedSubtitle: "", sfSymbol: "checkmark",
                         prompt: "write a commit message", usesSelection: true, translates: false,
                         builtIn: false))
         s.setShellCommand("pbcopy", for: "commit")

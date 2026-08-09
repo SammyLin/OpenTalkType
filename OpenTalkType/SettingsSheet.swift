@@ -245,7 +245,7 @@ private struct ModesPage: View {
                         remove: m.builtIn ? nil : { Store.shared.deleteMode(m.id) })
             }
             Button {
-                editing = Mode(id: "", displayName: "", subtitle: "", sfSymbol: "wand.and.stars",
+                editing = Mode(id: "", storedName: "", storedSubtitle: "", sfSymbol: "wand.and.stars",
                                prompt: "", usesSelection: false, translates: false, builtIn: false)
             } label: { Label("New Mode", systemImage: "plus") }
         }
@@ -360,7 +360,7 @@ private struct ModeEditor: View {
                 Image(systemName: draft.sfSymbol.isEmpty ? "wand.and.stars" : draft.sfSymbol)
                     .foregroundStyle(Theme.accent)
             }
-            TextField("One-line description", text: $draft.subtitle).frame(maxWidth: .infinity)
+            TextField("One-line description", text: $draft.storedSubtitle).frame(maxWidth: .infinity)
             Toggle("Read the selected text first and treat what you say as an instruction for it", isOn: $draft.usesSelection)
             Toggle("Translate into the target language set in Settings → General", isOn: $draft.translates)
         }

@@ -816,7 +816,7 @@ func selfTestHotkey(_ c: SelfTest.Check) {
     // Built here, not read from the database: the latch must behave the same whatever modes the
     // user has defined, and a self-test that reads live user data is not a self-test.
     func mk(_ id: String) -> Mode {
-        Mode(id: id, displayName: id, subtitle: "", sfSymbol: "waveform",
+        Mode(id: id, storedName: id, storedSubtitle: "", sfSymbol: "waveform",
              prompt: "", usesSelection: false, translates: false, builtIn: true)
     }
     let dictate = mk("dictate"), translate = mk("translate"), ask = mk("ask")

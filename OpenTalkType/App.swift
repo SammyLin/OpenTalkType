@@ -152,8 +152,10 @@ private final class ResumeOnce<T: Sendable>: @unchecked Sendable {
 /// (dictate / translate / ask) so existing rows keep resolving.
 struct Mode: Identifiable, Hashable, Sendable {
     var id: String
-    var displayName: String
-    var subtitle: String
+    /// As written in the database. Read `displayName` instead: for the seeded modes that column
+    /// is a snapshot of whatever language was current at first launch.
+    var storedName: String
+    var storedSubtitle: String
     var sfSymbol: String
     /// Empty means "use the built-in default for this id". Only built-ins have one.
     var prompt: String
@@ -166,6 +168,36 @@ struct Mode: Identifiable, Hashable, Sendable {
     /// and leave history rows pointing at nothing.
     var builtIn: Bool
 
+    /// What a person reads, as opposed to what is stored.
+    ///
+    /// Seeded modes resolve their name from their id every single time, so switching the app's
+    /// language switches their names with it. A database column cannot do that: the name is
+    /// written once at first launch and would still say "Dictate" to somebody who moved the app
+    /// to Japanese a week later. A user-made mode is the opposite case -- that name is the
+    /// person's own words and is never second-guessed.
+    var displayName: String {
+        get {
+            guard builtIn else { return storedName }
+            switch id {
+            case "dictate": return String(localized: "Dictate")
+            case "translate": return String(localized: "Translate")
+            case "ask": return String(localized: "Ask")
+            default: return storedName
+            }
+        }
+        set { storedName = newValue }
+    }
+
+    var subtitle: String {
+        guard builtIn else { return storedSubtitle }
+        switch id {
+        case "dictate": return String(localized: "Cleans up what you said and inserts it at the cursor.")
+        case "translate": return String(localized: "Speak in one language, get idiomatic text in another.")
+        case "ask": return String(localized: "Give an instruction about the selected text and replace it with the result.")
+        default: return storedSubtitle
+        }
+    }
+
     /// Kept so history rows, Prefs key names and the latch all keep spelling a mode the same way.
     var rawValue: String { id }
 
@@ -176,7 +208,7 @@ struct Mode: Identifiable, Hashable, Sendable {
 
     /// A stand-in for a history row whose mode was deleted, so the row still renders.
     static func placeholder(_ id: String) -> Mode {
-        Mode(id: id, displayName: id, subtitle: "", sfSymbol: "questionmark.circle",
+        Mode(id: id, storedName: id, storedSubtitle: "", sfSymbol: "questionmark.circle",
              prompt: "", usesSelection: false, translates: false, builtIn: false)
     }
 

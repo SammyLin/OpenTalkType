@@ -651,7 +651,7 @@ func selfTestLLM(_ c: SelfTest.Check) {
 
     // MARK: shell action
 
-    let custom = Mode(id: "selftest-mode", displayName: "Commit", subtitle: "", sfSymbol: "checkmark",
+    let custom = Mode(id: "selftest-mode", storedName: "Commit", storedSubtitle: "", sfSymbol: "checkmark",
                       prompt: "Write a conventional commit message.",
                       usesSelection: false, translates: false, builtIn: false)
     let env = shellEnvironment(text: "整理過的文字", mode: custom, app: "Ghostty", raw: "整理 過的 文字")
