@@ -43,6 +43,12 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
+        # Off here and turned on only by the release workflow, which signs with a real
+        # Developer ID. The hardened runtime enforces library validation: the app and the
+        # embedded Sparkle.framework must carry the same Team ID. A local build is adhoc
+        # and has no Team ID at all, so switching this on here makes every development
+        # build die at launch with "mapping process and mapped file have different Team
+        # IDs" -- which reads like a Sparkle bug and is not one.
         ENABLE_HARDENED_RUNTIME: NO
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
