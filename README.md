@@ -189,11 +189,8 @@ recogniser is `SpeechAnalyzer`, which does not exist before macOS 26.
 
 1. Download the `.dmg` from [Releases](https://github.com/SammyLin/OpenTalkType/releases) and drag
    the app to Applications.
-2. The build is **not notarised**, so macOS refuses to open it the first time. Right-click the app
-   and choose Open, or run:
-   ```sh
-   xattr -d com.apple.quarantine /Applications/OpenTalkType.app
-   ```
+2. Run it from `/Applications`, not from the mounted disk image. The image is read-only, so an
+   app launched from there cannot install its own updates.
 3. Grant Microphone and Accessibility when asked.
 4. System Settings › Keyboard › **Press globe key to** → **Do Nothing**, or holding `fn` opens the
    emoji picker on top of your dictation.
@@ -206,11 +203,13 @@ Every release ships `SHA256SUMS.txt` if you want to check what you downloaded.
 
 Stated here rather than discovered later.
 
-**It is not notarised.** Notarising needs a paid Apple Developer account, which this project does
-not have yet. That is the whole reason, and it affects the first launch only: right-click Open, or
-run the `xattr` line above.
+**Signed and notarised, so the first launch is ordinary.** Releases are built on a GitHub runner,
+signed with a Developer ID certificate, submitted to Apple, and stapled, and the workflow refuses
+to publish if `spctl` does not accept the result. Earlier builds were adhoc-signed and told you to
+right-click and choose Open — worth knowing that this stopped working in macOS 15, so that advice
+was wrong for everybody running an OS this app supports at all.
 
-Updates after that are a different matter and are verified. Each release is signed with an EdDSA
+Updates after that are verified separately. Each release is signed with an EdDSA
 key that exists in two places, the author's Keychain and this repository's Actions secrets, and
 the app refuses anything that does not match the public key compiled into the bundle. An update
 cannot be substituted even by someone who controls the download server. That distinction matters

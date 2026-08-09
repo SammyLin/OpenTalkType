@@ -161,10 +161,8 @@ Start Dictation、Stop Dictation、Cancel Dictation、Clean Up Text、Add Dictio
 需要 **macOS 26 以上、Apple silicon**。舊系統沒有退路：辨識用的是 `SpeechAnalyzer`，macOS 26 之前不存在。
 
 1. 到 [Releases](https://github.com/SammyLin/OpenTalkType/releases) 下載 `.dmg`，把 app 拖進「應用程式」。
-2. 這份建置**沒有經過 Apple 公證**，所以第一次打開會被擋。在 app 上按右鍵選「打開」，或者執行：
-   ```sh
-   xattr -d com.apple.quarantine /Applications/OpenTalkType.app
-   ```
+2. 從「應用程式」啟動，不要直接從掛載的磁碟映像檔執行。映像檔是唯讀的，
+   從那裡啟動的 app 沒辦法安裝自己的更新。
 3. 依提示給「麥克風」和「輔助使用」權限。
 4. 系統設定 › 鍵盤 ›「按下地球儀鍵時」改成「不執行任何動作」，否則你一按住 `fn`，
    emoji 選擇器就蓋在聽寫上面跳出來。
@@ -175,8 +173,12 @@ Start Dictation、Stop Dictation、Cancel Dictation、Clean Up Text、Add Dictio
 
 ## 幾件不好聽但你該先知道的事
 
-**它沒有公證。** 公證需要付費的 Apple Developer 帳號，這個專案目前沒有，就這麼單純，而且只影響第一次啟動。
-之後的更新則是另一回事，而且經過驗證。每一版都用一把 EdDSA 金鑰簽章，那把鑰匙只存在兩個地方：
+**有簽章、有公證，所以第一次啟動就是一般的啟動。** 每一版都在 GitHub runner 上建置，
+用 Developer ID 憑證簽章、送交 Apple 公證、把票據釘進檔案裡，而且 workflow 會在 `spctl` 不接受時
+直接拒絕發佈。早期的建置是 adhoc 簽章，當時的說明叫你按右鍵選「打開」——順帶一提，那招從 macOS 15
+起就失效了，所以那段說明對每一個跑得動這個 app 的系統都是錯的。
+
+之後的更新是另一套獨立的驗證。每一版都用一把 EdDSA 金鑰簽章，那把鑰匙只存在兩個地方：
 作者的鑰匙圈，以及這個 repo 的 Actions secrets。App 會拿編進 bundle 裡的公鑰比對，不符就拒絕安裝。
 就算有人拿到了下載伺服器的控制權，也無法把更新換成別的東西。
 
