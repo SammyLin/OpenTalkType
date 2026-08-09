@@ -177,8 +177,8 @@ Settings › General.
 - **Audio** input device selection, stop-on-silence, and muting other output while recording.
 - **Backup** of modes, dictionary, replacements, app rules and preferences as one JSON file. It
   contains no API keys, which live in the Keychain, and no history.
-- Six interface languages, of which one was written by a native speaker. See
-  [CONTRIBUTING.md](CONTRIBUTING.md).
+- Seven interface languages — English, 正體中文, 日本語, 한국어, Deutsch, Español, Français — of
+  which one was written by a native speaker. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -195,7 +195,14 @@ recogniser is `SpeechAnalyzer`, which does not exist before macOS 26.
 4. System Settings › Keyboard › **Press globe key to** → **Do Nothing**, or holding `fn` opens the
    emoji picker on top of your dictation.
 
-Every release ships `SHA256SUMS.txt` if you want to check what you downloaded.
+The app is free. What you may pay for is the language model that cleans the text up, and you pay
+whichever provider you chose, directly — there is no account here and nothing passes through a
+server of ours. Two of the options cost nothing: Claude Code reuses a subscription you already
+have, and a local Ollama or LM Studio server costs only electricity.
+
+Releases are signed with a Developer ID certificate, notarised by Apple and stapled, so the first
+launch is an ordinary one. The release workflow refuses to publish anything `spctl` does not
+accept. Every release also ships `SHA256SUMS.txt` if you want to check what you downloaded.
 
 ---
 
@@ -203,16 +210,11 @@ Every release ships `SHA256SUMS.txt` if you want to check what you downloaded.
 
 Stated here rather than discovered later.
 
-**Signed and notarised, so the first launch is ordinary.** Releases are built on a GitHub runner,
-signed with a Developer ID certificate, submitted to Apple, and stapled, and the workflow refuses
-to publish if `spctl` does not accept the result. Earlier builds were adhoc-signed and told you to
-right-click and choose Open — worth knowing that this stopped working in macOS 15, so that advice
-was wrong for everybody running an OS this app supports at all.
-
-Updates after that are verified separately. Each release is signed with an EdDSA
-key that exists in two places, the author's Keychain and this repository's Actions secrets, and
-the app refuses anything that does not match the public key compiled into the bundle. An update
-cannot be substituted even by someone who controls the download server. That distinction matters
+**Updates install themselves, and that is a thing worth being suspicious of.** Each release is
+signed with an EdDSA key that exists in two places, the author's Keychain and this repository's
+Actions secrets, and the app refuses anything that does not match the public key compiled into
+the bundle. An update cannot be substituted even by someone who controls the download server.
+That distinction matters
 for an app holding Accessibility permission: the risk is not the download, it is what gets to
 replace a program allowed to watch every keystroke. Automatic checking still ships off, because an
 app that phones home before anyone agreed to anything is doing it without asking.
@@ -243,8 +245,6 @@ clipboard and the app says so rather than looking broken.
 
 ## Build from source
 
-No third-party dependencies, no package manager step, nothing to resolve.
-
 ```sh
 xcodegen generate
 open OpenTalkType.xcodeproj
@@ -252,6 +252,12 @@ open OpenTalkType.xcodeproj
 
 `brew install xcodegen` first, if you do not have it. Xcode 26 is required to build. Signing is
 ad-hoc, so no Apple Developer account is needed.
+
+One third-party dependency, [Sparkle](https://github.com/sparkle-project/Sparkle), resolved by
+Swift Package Manager when Xcode opens the project. It earns the exception: the valuable part of
+an updater is not downloading a zip, it is verifying a signature before anything replaces a
+program that holds Accessibility permission. Everything else is Apple's frameworks and
+`libsqlite3`.
 
 ### Self-test
 
