@@ -132,8 +132,9 @@ enum Automation {
             // followed a link on purpose.
             guard !warnedAboutDisabledScheme else { return }
             warnedAboutDisabledScheme = true
-            AppState.shared.notify("已忽略 opentalktype:// 連結",
-                                   "網址控制預設關閉。要啟用請到「設定 → 自動化」勾選「允許 opentalktype:// 連結控制這個 App」。")
+            AppState.shared.notify(
+                String(localized: "Ignored an opentalktype:// link"),
+                String(localized: "URL control is off by default. To turn it on, go to Settings → Automation and select \"Allow opentalktype:// links to control this app\"."))
             return
         }
         guard let command = parse(url, modes: Mode.allCases.map(\.id)) else { return }
@@ -170,7 +171,8 @@ enum Automation {
             let cleaned = try await state.process(text, mode: mode, selection: nil)
             state.lastResult = cleaned
             if await !insertText(cleaned) {
-                state.notify("無法自動貼上", "文字已放在剪貼簿，請按 ⌘V。")
+                state.notify(String(localized: "Could not paste automatically"),
+                             String(localized: "The text is on the clipboard, so press ⌘V."))
             }
             Store.shared.insert(mode: mode, raw: text, cleaned: cleaned, app: "URL",
                                 targetLang: mode.translates ? Prefs.translateTargetCode : nil,
@@ -180,7 +182,8 @@ enum Automation {
             NSPasteboard.general.setString(text, forType: .string)
             state.lastResult = ""
             state.lastError = error.localizedDescription
-            state.notify("整理失敗，原文已複製到剪貼簿", error.localizedDescription)
+            state.notify(String(localized: "Cleanup failed, the original text is on the clipboard"),
+                         error.localizedDescription)
             Store.shared.insert(mode: mode, raw: text, cleaned: "", app: "URL")
         }
     }
@@ -199,13 +202,13 @@ struct ModeIDOptions: DynamicOptionsProvider {
 }
 
 struct StartDictationIntent: AppIntent {
-    static let title: LocalizedStringResource = "開始聽寫"
-    static let description = IntentDescription("開始一段語音輸入。放開 fn 或執行「停止聽寫」後，整理好的文字會貼到游標位置。")
+    static let title: LocalizedStringResource = "Start Dictation"
+    static let description = IntentDescription("Starts a dictation session. When you release fn or run Stop Dictation, the cleaned-up text is pasted at the cursor.")
     /// Never true: bringing OpenTalkType to the front would steal focus from the app the user
     /// is dictating into, and the text is pasted wherever the cursor was.
     static let openAppWhenRun = false
 
-    @Parameter(title: "模式", optionsProvider: ModeIDOptions())
+    @Parameter(title: "Mode", optionsProvider: ModeIDOptions())
     var modeID: String?
 
     @MainActor
@@ -216,8 +219,8 @@ struct StartDictationIntent: AppIntent {
 }
 
 struct StopDictationIntent: AppIntent {
-    static let title: LocalizedStringResource = "停止聽寫"
-    static let description = IntentDescription("結束目前這段語音輸入，整理後貼上。")
+    static let title: LocalizedStringResource = "Stop Dictation"
+    static let description = IntentDescription("Ends the current dictation session, cleans the text up and pastes it.")
     static let openAppWhenRun = false
 
     @MainActor
@@ -228,8 +231,8 @@ struct StopDictationIntent: AppIntent {
 }
 
 struct CancelDictationIntent: AppIntent {
-    static let title: LocalizedStringResource = "取消聽寫"
-    static let description = IntentDescription("放棄目前這段語音輸入：不轉錄、不貼上、不留紀錄。")
+    static let title: LocalizedStringResource = "Cancel Dictation"
+    static let description = IntentDescription("Abandons the current dictation session: nothing is transcribed, nothing is pasted, nothing is kept.")
     static let openAppWhenRun = false
 
     @MainActor
@@ -240,14 +243,14 @@ struct CancelDictationIntent: AppIntent {
 }
 
 struct CleanUpTextIntent: AppIntent {
-    static let title: LocalizedStringResource = "整理這段文字"
-    static let description = IntentDescription("把一段文字送進和聽寫相同的整理流程，回傳整理後的文字。不會貼上。")
+    static let title: LocalizedStringResource = "Clean Up Text"
+    static let description = IntentDescription("Runs text through the same cleanup pipeline dictation uses and returns the result. Nothing is pasted.")
     static let openAppWhenRun = false
 
-    @Parameter(title: "文字")
+    @Parameter(title: "Text")
     var text: String
 
-    @Parameter(title: "模式", optionsProvider: ModeIDOptions())
+    @Parameter(title: "Mode", optionsProvider: ModeIDOptions())
     var modeID: String?
 
     /// Not @MainActor: this is the one intent that can legitimately run while a dictation is in
@@ -256,7 +259,8 @@ struct CleanUpTextIntent: AppIntent {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .result(value: "") }
         guard trimmed.count <= Automation.maxTextLength else {
-            throw LLMError("文字超過 \(Automation.maxTextLength) 字，請先拆短。")
+            throw LLMError(String(format: String(localized: "That text is longer than %d characters. Split it up first."),
+                                  Automation.maxTextLength))
         }
         let mode = modeID.flatMap(Mode.named) ?? .dictate
         return .result(value: try await llmComplete(mode: mode, text: trimmed,
@@ -265,19 +269,19 @@ struct CleanUpTextIntent: AppIntent {
 }
 
 struct AddDictionaryTermIntent: AppIntent {
-    static let title: LocalizedStringResource = "加入字典詞彙"
-    static let description = IntentDescription("把一個詞加進字典。「常被聽成」的寫法會在整理前先被改寫成正確拼法。")
+    static let title: LocalizedStringResource = "Add Dictionary Term"
+    static let description = IntentDescription("Adds a term to the dictionary. The spellings listed as misheard are rewritten to the correct one before cleanup runs.")
     static let openAppWhenRun = false
 
-    @Parameter(title: "詞彙")
+    @Parameter(title: "Term")
     var term: String
 
-    @Parameter(title: "常被聽成")
+    @Parameter(title: "Often misheard as")
     var aliases: [String]?
 
     func perform() async throws -> some IntentResult {
         let name = term.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw LLMError("詞彙不能是空的。") }
+        guard !name.isEmpty else { throw LLMError(String(localized: "The term cannot be empty.")) }
         Store.shared.saveTerm(id: nil, text: name,
                               variants: (aliases ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) },
                               source: .manual)
@@ -288,20 +292,20 @@ struct AddDictionaryTermIntent: AppIntent {
 struct OpenTalkTypeShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: StartDictationIntent(),
-                    phrases: ["用 \(.applicationName) 開始聽寫", "\(.applicationName) 開始說話"],
-                    shortTitle: "開始聽寫", systemImageName: "waveform")
+                    phrases: ["Start dictation with \(.applicationName)", "Start talking to \(.applicationName)"],
+                    shortTitle: "Start Dictation", systemImageName: "waveform")
         AppShortcut(intent: StopDictationIntent(),
-                    phrases: ["用 \(.applicationName) 停止聽寫", "\(.applicationName) 說完了"],
-                    shortTitle: "停止聽寫", systemImageName: "stop.circle")
+                    phrases: ["Stop dictation with \(.applicationName)", "I am done talking to \(.applicationName)"],
+                    shortTitle: "Stop Dictation", systemImageName: "stop.circle")
         AppShortcut(intent: CancelDictationIntent(),
-                    phrases: ["用 \(.applicationName) 取消聽寫", "\(.applicationName) 不要了"],
-                    shortTitle: "取消聽寫", systemImageName: "xmark.circle")
+                    phrases: ["Cancel dictation with \(.applicationName)", "Never mind, \(.applicationName)"],
+                    shortTitle: "Cancel Dictation", systemImageName: "xmark.circle")
         AppShortcut(intent: CleanUpTextIntent(),
-                    phrases: ["用 \(.applicationName) 整理文字", "\(.applicationName) 整理這段話"],
-                    shortTitle: "整理文字", systemImageName: "text.badge.checkmark")
+                    phrases: ["Clean up text with \(.applicationName)", "Tidy this up with \(.applicationName)"],
+                    shortTitle: "Clean Up", systemImageName: "text.badge.checkmark")
         AppShortcut(intent: AddDictionaryTermIntent(),
-                    phrases: ["用 \(.applicationName) 加入字典詞彙", "\(.applicationName) 記住這個詞"],
-                    shortTitle: "加入字典", systemImageName: "character.book.closed")
+                    phrases: ["Add a dictionary term with \(.applicationName)", "Remember this word, \(.applicationName)"],
+                    shortTitle: "Add to Dictionary", systemImageName: "character.book.closed")
     }
 }
 
@@ -334,7 +338,7 @@ enum MCP {
     static func serve() -> Never {
         _ = out                                   // claim stdout before anything can print
         guard UserDefaults.standard.bool(forKey: Prefs.mcpEnabled) else {
-            log("MCP 伺服器未啟用。請開啟 OpenTalkType，到「設定 → 自動化」勾選「允許以 --mcp 提供 MCP 服務」。")
+            log("MCP server is not enabled. Open OpenTalkType, go to Settings → Automation and select \"Allow --mcp to serve MCP\".")
             exit(2)
         }
         log("ready on stdio, protocol \(protocolVersion)")
@@ -384,16 +388,16 @@ enum MCP {
         case "tools/call":
             let params = request["params"] as? [String: Any] ?? [:]
             guard let name = params["name"] as? String else {
-                return fail(-32602, "缺少 name")
+                return fail(-32602, "Missing name")
             }
             let arguments = params["arguments"] as? [String: Any] ?? [:]
             guard toolSchemas.contains(where: { $0["name"] as? String == name }) else {
-                return fail(-32602, "沒有這個工具：\(name)")
+                return fail(-32602, "No such tool: \(name)")
             }
             return ok(call(name, arguments))
 
         default:
-            return fail(-32601, "不支援的方法：\(method)")
+            return fail(-32601, "Method not found: \(method)")
         }
     }
 
@@ -447,13 +451,13 @@ enum MCP {
         switch name {
         case "opentalktype_clean_text":
             let text = string(args, "text")
-            guard !text.isEmpty else { return result("text 不能是空的", isError: true) }
+            guard !text.isEmpty else { return result("text must not be empty", isError: true) }
             guard text.count <= Automation.maxTextLength else {
-                return result("text 超過 \(Automation.maxTextLength) 字", isError: true)
+                return result("text is longer than \(Automation.maxTextLength) characters", isError: true)
             }
             let modeID = string(args, "mode")
             guard let mode = modeID.isEmpty ? Mode.dictate : Mode.named(modeID) else {
-                return result("沒有這個模式：\(modeID)", isError: true)
+                return result("No such mode: \(modeID)", isError: true)
             }
             switch blockingCall({ try await llmComplete(mode: mode, text: text, selection: nil,
                                                         terms: Store.shared.terms()) }) {
@@ -464,7 +468,7 @@ enum MCP {
         case "opentalktype_history_search":
             let modeID = string(args, "mode")
             if !modeID.isEmpty, Mode.named(modeID) == nil {
-                return result("沒有這個模式：\(modeID)", isError: true)
+                return result("No such mode: \(modeID)", isError: true)
             }
             let limit = min(max(args["limit"] as? Int ?? 20, 1), 200)
             let rows = Store.shared.entries(mode: modeID.isEmpty ? nil : Mode.named(modeID),
@@ -480,12 +484,12 @@ enum MCP {
 
         case "opentalktype_add_term":
             let term = string(args, "term")
-            guard !term.isEmpty else { return result("term 不能是空的", isError: true) }
+            guard !term.isEmpty else { return result("term must not be empty", isError: true) }
             let aliases = (args["aliases"] as? [Any] ?? []).compactMap { $0 as? String }
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
             Store.shared.saveTerm(id: nil, text: term, variants: aliases, source: .manual)
-            return result("已加入：\(term)")
+            return result("Added: \(term)")
 
         case "opentalktype_list_modes":
             return result(json(Mode.allCases.map { mode -> [String: Any] in
@@ -494,7 +498,7 @@ enum MCP {
             }))
 
         default:
-            return result("沒有這個工具：\(name)", isError: true)
+            return result("No such tool: \(name)", isError: true)
         }
     }
 
@@ -530,7 +534,7 @@ enum MCP {
         // inout-captured variable cross an isolation boundary, however unsafe you promise it is.
         // The semaphore is the synchronisation, so @unchecked is honest here.
         final class Box: @unchecked Sendable {
-            var outcome: Result<String, Error> = .failure(LLMError("沒有回應"))
+            var outcome: Result<String, Error> = .failure(LLMError("No response"))
         }
         let box = Box()
         let done = DispatchSemaphore(value: 0)

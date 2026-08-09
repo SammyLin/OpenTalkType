@@ -26,17 +26,17 @@ enum SpeechError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .micDenied:
-            "沒有麥克風權限。請到「系統設定 → 隱私權與安全性 → 麥克風」勾選 OpenTalkType。"
+            String(localized: "OpenTalkType has no microphone access. Open System Settings → Privacy & Security → Microphone and turn on OpenTalkType.")
         case .noInput:
-            "找不到可用的輸入裝置。請確認麥克風已連接並在系統設定中選為輸入來源。"
+            String(localized: "No input device is available. Check that a microphone is connected and selected as the input in System Settings.")
         case .localeUnsupported(let id):
-            "系統語音辨識不支援「\(id)」。請到「設定 → AI」換一個辨識語言。"
+            String(format: String(localized: "The system speech recogniser does not support \"%@\". Pick another recognition language in Settings → AI."), id)
         case .modelUnavailable:
-            "語言模型尚未下載完成，或這個語言沒有可用的模型。請連上網路後重試。"
+            String(localized: "The language model has not finished downloading, or there is no model for this language. Connect to the internet and try again.")
         case .converter:
-            "無法建立音訊轉換器，麥克風格式與辨識引擎不相容。"
+            String(localized: "Could not create the audio converter: the microphone's format and the recognition engine are not compatible.")
         case .engine(let why):
-            "無法啟動錄音：\(why)"
+            String(format: String(localized: "Could not start recording: %@"), why)
         }
     }
 }
@@ -263,9 +263,9 @@ final class SpeechEngine {
         }
 
         state.modelReady = false
-        state.modelStatus = "下載語言模型中"
+        state.modelStatus = String(localized: "Downloading language model")
         guard let request = try? await AssetInventory.assetInstallationRequest(supporting: [mod.module]) else {
-            state.modelStatus = "語言模型無法下載"
+            state.modelStatus = String(localized: "The language model could not be downloaded")
             throw SpeechError.modelUnavailable
         }
 
@@ -274,7 +274,8 @@ final class SpeechEngine {
         let progress = request.progress
         let ticker = Task { [weak self] in
             while !Task.isCancelled {
-                self?.state.modelStatus = "下載語言模型中 \(Int(progress.fractionCompleted * 100))%"
+                self?.state.modelStatus = String(format: String(localized: "Downloading language model %d%%"),
+                                                 Int(progress.fractionCompleted * 100))
                 try? await Task.sleep(for: .milliseconds(300))
             }
         }
@@ -283,7 +284,7 @@ final class SpeechEngine {
         do {
             try await request.downloadAndInstall()
         } catch {
-            state.modelStatus = "語言模型下載失敗"
+            state.modelStatus = String(localized: "The language model download failed")
             throw SpeechError.modelUnavailable
         }
         state.modelReady = true

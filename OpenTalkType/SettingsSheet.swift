@@ -15,8 +15,12 @@ import UniformTypeIdentifiers
 private let repositoryURL = URL(string: "https://github.com/3mi-ai/opentalktype")!
 
 private let recognitionLocales: [(code: String, name: String)] = [
-    ("zh-TW", "中文（台灣）"), ("zh-CN", "中文（中國）"), ("en-US", "英文（美國）"),
-    ("en-GB", "英文（英國）"), ("ja-JP", "日文"), ("ko-KR", "韓文"),
+    ("zh-TW", String(localized: "Chinese (Taiwan)")),
+    ("zh-CN", String(localized: "Chinese (China)")),
+    ("en-US", String(localized: "English (US)")),
+    ("en-GB", String(localized: "English (UK)")),
+    ("ja-JP", String(localized: "Japanese")),
+    ("ko-KR", String(localized: "Korean")),
 ]
 
 /// The HUD placement key. Panels.swift reads the same string literal and says it must equal this
@@ -52,18 +56,18 @@ private enum Page: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .general: "一般"
-        case .modes: "模式"
-        case .trigger: "觸發"
-        case .insertion: "插入文字"
-        case .audio: "音訊"
-        case .replacements: "取代規則"
-        case .appRules: "App 規則"
-        case .automation: "自動化"
-        case .backup: "備份"
-        case .ai: "AI"
-        case .permissions: "權限"
-        case .about: "關於"
+        case .general: String(localized: "General")
+        case .modes: String(localized: "Modes")
+        case .trigger: String(localized: "Trigger")
+        case .insertion: String(localized: "Text Insertion")
+        case .audio: String(localized: "Audio")
+        case .replacements: String(localized: "Replacements")
+        case .appRules: String(localized: "App Rules")
+        case .automation: String(localized: "Automation")
+        case .backup: String(localized: "Backup")
+        case .ai: String(localized: "AI")
+        case .permissions: String(localized: "Permissions")
+        case .about: String(localized: "About")
         }
     }
 
@@ -93,7 +97,7 @@ struct SettingsSheet: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("設定")
+                Text("Settings")
                     .font(Theme.heading)
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, Theme.Space.s)
@@ -139,7 +143,7 @@ struct SettingsSheet: View {
                 Rectangle().fill(Theme.stroke).frame(height: 1)
                 HStack {
                     Spacer()
-                    Button("完成") { dismiss() }.keyboardShortcut(.defaultAction)
+                    Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
                 }
                 .padding(Theme.Space.m)
             }
@@ -186,31 +190,31 @@ private struct GeneralPage: View {
     @AppStorage(Prefs.launchAtLogin) private var launchAtLogin = false
 
     var body: some View {
-        Section("浮動視窗") {
-            Toggle("說話時顯示浮動視窗", isOn: $showHUD)
-            Picker("位置", selection: $hudStyle) {
-                Text("瀏海（貼齊螢幕最上緣）").tag("notch")
-                Text("螢幕下方置中").tag("bottom")
+        Section("Floating window") {
+            Toggle("Show the floating window while you speak", isOn: $showHUD)
+            Picker("Position", selection: $hudStyle) {
+                Text("Notch (flush with the top of the screen)").tag("notch")
+                Text("Centered near the bottom of the screen").tag("bottom")
             }
             .frame(width: 340)
             .disabled(!showHUD)
-            Text("「瀏海」會從螢幕上緣長出一塊黑色面板，左邊是音量、右邊是即時辨識的字；沒有瀏海的螢幕會變成貼在選單列下方的膠囊。浮動視窗永遠不會搶走鍵盤焦點。")
+            Text("Notch grows a black panel out of the top edge of the screen, with the input level on the left and the live transcription on the right. On a screen without a notch it becomes a pill tucked under the menu bar. The floating window never takes keyboard focus.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("其他") {
-            Toggle("開始與結束時播放提示音", isOn: $sound)
-            Toggle("登入時自動啟動", isOn: $launchAtLogin)
+        Section("Other") {
+            Toggle("Play a sound when dictation starts and stops", isOn: $sound)
+            Toggle("Launch at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
         }
 
-        Section("翻譯") {
-            Picker("翻譯成", selection: $target) {
+        Section("Translation") {
+            Picker("Translate into", selection: $target) {
                 ForEach(translateLanguages, id: \.code) { Text($0.name).tag($0.code) }
             }
             .frame(width: 340)
-            Text("所有勾了「翻譯」的模式都送到這個語言。")
+            Text("Modes with translation turned on all target this language.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -233,8 +237,8 @@ private struct ModesPage: View {
     @State private var modes: [Mode] = []
 
     var body: some View {
-        Section("模式") {
-            Text("一個模式就是一組提示詞加一顆鍵。要改按鍵請到「觸發」。")
+        Section("Modes") {
+            Text("A mode is a prompt plus a key. To change the key, go to Trigger.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
             ForEach(modes) { m in
                 ModeRow(mode: m, edit: { editing = m },
@@ -243,7 +247,7 @@ private struct ModesPage: View {
             Button {
                 editing = Mode(id: "", displayName: "", subtitle: "", sfSymbol: "wand.and.stars",
                                prompt: "", usesSelection: false, translates: false, builtIn: false)
-            } label: { Label("新增模式", systemImage: "plus") }
+            } label: { Label("New Mode", systemImage: "plus") }
         }
 
         Color.clear.frame(height: 0)
@@ -276,20 +280,20 @@ private struct ModeRow: View {
             }
             Spacer(minLength: Theme.Space.m)
             if !shell.isEmpty {
-                Badge(symbol: "terminal", text: "指令")
-                    .help("整理完會執行：\(shell)")
+                Badge(symbol: "terminal", text: "Command")
+                    .help("Runs after cleanup: \(shell)")
             }
             if override != .inherit {
-                Badge(symbol: "return", text: override == .on ? "一定送出" : "不送出")
+                Badge(symbol: "return", text: override == .on ? "Always sends" : "Never sends")
             }
             KeyCaps(mode.keyCaps)
             Button(action: edit) { Image(systemName: "pencil") }
                 .buttonStyle(.borderless)
-                .help("編輯這個模式")
+                .help("Edit this mode")
             if let remove {
                 Button(role: .destructive, action: remove) { Image(systemName: "trash") }
                     .buttonStyle(.borderless)
-                    .help("刪除這個模式")
+                    .help("Delete this mode")
             }
         }
     }
@@ -297,7 +301,7 @@ private struct ModeRow: View {
 
 private struct Badge: View {
     let symbol: String
-    let text: String
+    let text: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 3) {
@@ -333,7 +337,7 @@ private struct ModeEditor: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                Text(isNew ? "新增模式" : "編輯模式")
+                Text(isNew ? "New Mode" : "Edit Mode")
                     .font(Theme.heading).foregroundStyle(Theme.textPrimary)
                 identity
                 prompt
@@ -350,21 +354,21 @@ private struct ModeEditor: View {
     private var identity: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             HStack(spacing: Theme.Space.m) {
-                TextField("名稱", text: $draft.displayName).frame(width: 180)
+                TextField("Name", text: $draft.displayName).frame(width: 180)
                 TextField("SF Symbol", text: $draft.sfSymbol, prompt: Text("wand.and.stars"))
                     .frame(width: 180)
                 Image(systemName: draft.sfSymbol.isEmpty ? "wand.and.stars" : draft.sfSymbol)
                     .foregroundStyle(Theme.accent)
             }
-            TextField("一句話說明", text: $draft.subtitle).frame(maxWidth: .infinity)
-            Toggle("先讀取選取的文字，把說的話當成對它的指令", isOn: $draft.usesSelection)
-            Toggle("翻譯成「設定 → 一般」選的目標語言", isOn: $draft.translates)
+            TextField("One-line description", text: $draft.subtitle).frame(maxWidth: .infinity)
+            Toggle("Read the selected text first and treat what you say as an instruction for it", isOn: $draft.usesSelection)
+            Toggle("Translate into the target language set in Settings → General", isOn: $draft.translates)
         }
     }
 
     private var prompt: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Text("提示詞").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            Text("Prompt").font(Theme.caption).foregroundStyle(Theme.textSecondary)
             TextEditor(text: $promptText)
                 .font(Theme.mono)
                 .frame(minHeight: 140)
@@ -373,7 +377,7 @@ private struct ModeEditor: View {
                 .background(Theme.card, in: .rect(cornerRadius: Theme.Radius.control))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control)
                     .strokeBorder(Theme.stroke))
-            Text("防注入規則、字典和中英空格規則會自動接在後面，不用自己寫。翻譯模式可用 {{TARGET}} 代表目標語言。")
+            Text("The injection guard, the dictionary and the CJK spacing rules are appended automatically, so you do not have to write them. In a translating mode, {{TARGET}} stands for the target language.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -381,11 +385,11 @@ private struct ModeEditor: View {
 
     private var behaviour: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Picker("貼上後自動送出", selection: $autoSubmit) {
+            Picker("Submit automatically after pasting", selection: $autoSubmit) {
                 ForEach(AutoSubmit.allCases) { Text($0.displayName).tag($0.rawValue) }
             }
             .frame(width: 340)
-            Text("覆蓋「插入文字」裡的全域設定。給聊天視窗用的模式適合設成「一定送出」，寫文件的模式設成「一定不送出」。")
+            Text("Overrides the global setting under Text Insertion. A mode meant for a chat window wants to submit every time; a mode for writing documents never should.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -396,16 +400,16 @@ private struct ModeEditor: View {
             HStack(spacing: Theme.Space.xs) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Theme.warning)
-                Text("整理完要執行的指令（選填）")
+                Text("Command to run after cleanup (optional)")
                     .font(Theme.caption).foregroundStyle(Theme.textSecondary)
             }
-            TextField("", text: $shell, prompt: Text("例如：tee -a ~/notes.md"))
+            TextField("", text: $shell, prompt: Text("For example: tee -a ~/notes.md"))
                 .font(Theme.mono)
                 .frame(maxWidth: .infinity)
-            Text("這一行會交給 /bin/sh 執行，以你的身分、擁有你所有的檔案權限，等同你自己在終端機裡輸入。只填你看得懂而且是自己寫的指令。")
+            Text("This line is handed to /bin/sh as you, with every file permission you have, exactly as if you had typed it in Terminal. Only put in commands you wrote yourself and understand.")
                 .font(Theme.caption).foregroundStyle(Theme.warning)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("整理後的文字會從標準輸入送進去，也可以用 $OT_TRANSCRIPT（整理後）、$OT_RAW（原始逐字稿）、$OT_MODE、$OT_APP。指令若有輸出，輸出會取代要貼上的文字；沒有輸出就照原本的文字貼上。工作目錄是家目錄，逾時 15 秒，非零結束會把它的錯誤訊息顯示出來。")
+            Text("The cleaned-up text arrives on standard input, and is also available as $OT_TRANSCRIPT (cleaned up), $OT_RAW (the raw transcript), $OT_MODE and $OT_APP. If the command writes anything, its output replaces the text to be pasted; if it writes nothing, the original text is pasted. The working directory is your home folder, the timeout is 15 seconds, and a non-zero exit shows the command's error message.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -414,14 +418,14 @@ private struct ModeEditor: View {
     private var buttons: some View {
         HStack {
             if !isNew {
-                Button("回復預設提示詞") {
+                Button("Restore Default Prompt") {
                     UserDefaults.standard.removeObject(forKey: Prefs.systemPrompt(draft))
                     promptText = Prefs.defaultPrompt(draft)
                 }
             }
             Spacer()
-            Button("取消") { dismiss() }
-            Button("儲存") { save() }
+            Button("Cancel") { dismiss() }
+            Button("Save") { save() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(draft.displayName.trimmingCharacters(in: .whitespaces).isEmpty)
         }
@@ -452,32 +456,32 @@ private struct TriggerPage: View {
     @State private var modes: [Mode] = []
 
     var body: some View {
-        Section("按住還是鎖定") {
-            Text("按住 fn 說話、放開結束，這個永遠有效。按 Esc 隨時取消，取消不貼上也不留紀錄。")
+        Section("Hold or lock") {
+            Text("Hold fn to speak and release to finish; this always works. Press Esc at any time to cancel, which pastes nothing and records nothing.")
                 .font(Theme.body).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Toggle("連按兩下 fn 鎖定，不用一直按著", isOn: $handsFree)
-            Text("開啟後多一個手勢：0.4 秒內連按兩下 fn，麥克風就會一直開著，說完再按一下 fn 結束。長篇口述時手不用一直壓在鍵盤上。")
+            Toggle("Double-tap fn to lock, so you do not have to hold it", isOn: $handsFree)
+            Text("Adds one gesture: tap fn twice within 0.4 seconds and the microphone stays open until you tap fn again. Useful for long dictation, when holding a key down the whole time gets tiring.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("每個模式的按鍵") {
-            Text("全部以 fn 為底，設定的是「再多按哪一顆鍵」。同一顆鍵綁在兩個模式上時，清單裡靠前的那個會贏。")
+        Section("Key for each mode") {
+            Text("Everything starts from fn; what you pick here is the extra key held with it. When two modes claim the same key, the one higher in the list wins.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(modes) { HotkeyRow(mode: $0) }
         }
 
-        Section("安靜就自動結束") {
-            Toggle("停止說話一段時間後自動結束", isOn: $silenceStop)
-            LabeledSlider(title: "音量門檻", value: $silenceLevel, range: 0.01...0.9, step: 0.01,
+        Section("Stop on silence") {
+            Toggle("Finish automatically once you stop speaking", isOn: $silenceStop)
+            LabeledSlider(title: "Level threshold", value: $silenceLevel, range: 0.01...0.9, step: 0.01,
                           text: String(format: "%.2f", silenceLevel))
                 .disabled(!silenceStop)
-            LabeledSlider(title: "安靜多久", value: $silenceSeconds, range: 0.5...10, step: 0.1,
-                          text: String(format: "%.1f 秒", silenceSeconds))
+            LabeledSlider(title: "Silence for", value: $silenceSeconds, range: 0.5...10, step: 0.1,
+                          text: String(format: String(localized: "%.1f s"), silenceSeconds))
                 .disabled(!silenceStop)
-            Text("要先聽到有人說話才會開始倒數，所以按下去還在想句子的時候不會被切斷。判斷用的是平滑過的音量，句子中間的短暫停頓不會誤判。門檻調高比較容易被判定成安靜；吵雜環境請調高，安靜的房間可以調低。")
+            Text("The countdown only starts once speech has been heard, so nothing is cut off while you hold the key and think of a sentence. The decision uses a smoothed level, so a short pause mid-sentence is not mistaken for the end. A higher threshold makes silence easier to declare: raise it in a noisy room, lower it in a quiet one.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -486,7 +490,7 @@ private struct TriggerPage: View {
 }
 
 private struct LabeledSlider: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var value: Double
     let range: ClosedRange<Double>
     let step: Double
@@ -538,8 +542,8 @@ private struct InsertionPage: View {
     private var current: PasteMethod { PasteMethod(rawValue: method) ?? .paste }
 
     var body: some View {
-        Section("貼上方式") {
-            Picker("方式", selection: $method) {
+        Section("How text is inserted") {
+            Picker("Method", selection: $method) {
                 ForEach(PasteMethod.allCases) { Text($0.displayName).tag($0.rawValue) }
             }
             .frame(width: 340)
@@ -548,17 +552,17 @@ private struct InsertionPage: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("貼上之後") {
-            Toggle("在結尾補一個空白", isOn: $trailingSpace)
-            Text("連續講好幾段時，下一段不用自己先按空白鍵。")
+        Section("After pasting") {
+            Toggle("Add a trailing space", isOn: $trailingSpace)
+            Text("When you dictate several passages in a row, you do not have to type the space before the next one.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
-            Toggle("自動按 Return 送出", isOn: $autoSubmit)
-            Text("聊天視窗用得上，文件編輯器會直接換行。用「貼上（⌘V）」時，只有在對方 App 真的把剪貼簿讀走之後才會送出 Return；讀不到就不送，寧可讓你自己按。個別模式可以在「模式」裡覆蓋這一項。")
+            Toggle("Press Return to submit", isOn: $autoSubmit)
+            Text("Handy in a chat window; a text editor will simply take the line break. When pasting with ⌘V, Return is only sent once the other app has actually read the clipboard: if it never does, nothing is sent and you press Return yourself. Individual modes can override this under Modes.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("安全輸入") { SecureInputRow() }
+        Section("Secure input") { SecureInputRow() }
     }
 }
 
@@ -571,13 +575,13 @@ private struct SecureInputRow: View {
     var body: some View {
         HStack(spacing: Theme.Space.m) {
             Circle().fill(enabled ? Theme.warning : Theme.success).frame(width: 8, height: 8)
-            Text(enabled ? "有 App 正在使用安全輸入" : "沒有 App 佔用安全輸入")
+            Text(enabled ? "An app is using secure input" : "No app is holding secure input")
                 .font(Theme.body).foregroundStyle(Theme.textPrimary)
             Spacer()
         }
         Text(enabled
              ? SecureInput.advice
-             : "安全輸入開啟時，任何 App 都不能替你送出按鍵，所以貼上和模擬打字都會失效。密碼欄位和終端機的「安全鍵盤輸入」會開啟它。遇到時文字仍會進剪貼簿、紀錄和選單列，不會弄丟。")
+             : String(localized: "While secure input is on, no app can send keystrokes on your behalf, so both pasting and simulated typing stop working. Password fields and Terminal's Secure Keyboard Entry turn it on. When that happens the text still reaches the clipboard, the history and the menu bar, so nothing is lost."))
             .font(Theme.caption)
             .foregroundStyle(enabled ? Theme.warning : Theme.textTertiary)
             .fixedSize(horizontal: false, vertical: true)
@@ -600,39 +604,39 @@ private struct AudioPage: View {
     @State private var devices: [InputDevice] = []
 
     var body: some View {
-        Section("輸入裝置") {
+        Section("Input device") {
             HStack(spacing: Theme.Space.m) {
-                Picker("麥克風", selection: $deviceUID) {
-                    Text("系統預設").tag("")
+                Picker("Microphone", selection: $deviceUID) {
+                    Text("System default").tag("")
                     ForEach(devices) { Text($0.name).tag($0.id) }
                 }
                 .frame(width: 340)
-                Button("重新掃描") { devices = SpeechEngine.inputDevices }
+                Button("Rescan") { devices = SpeechEngine.inputDevices }
             }
-            Text("每次開始說話前都會重新套用，所以在這裡換裝置不用重開 App，下一次按 fn 就生效。指定的裝置被拔掉時會自動回到系統預設；錄音途中被拔掉則會直接結束這一次，已經聽到的字照樣整理、貼上並存進紀錄。")
+            Text("The choice is applied again before every session, so changing devices here needs no restart: the next press of fn already uses it. If the chosen device is unplugged, the system default takes over; unplug it mid-recording and the session ends there, with everything heard so far still cleaned up, pasted and saved to history.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("錄音時") {
-            Toggle("錄音時把其他聲音靜音", isOn: $mute)
-            Text("把預設輸出裝置的音量降到 0，結束時還原。影片和音樂會繼續播，只是聽不見；也會一起蓋掉本 App 自己的提示音。錄音途中你手動調的音量會在結束時被還原掉。")
+        Section("While recording") {
+            Toggle("Mute other audio while recording", isOn: $mute)
+            Text("Drops the default output device to zero and restores it afterwards. Video and music keep playing, you just cannot hear them, and this silences the app's own start and stop sounds along with everything else. Any volume change you make by hand while recording is undone at the end.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("保留錄音") {
+        Section("Keep recordings") {
             HStack(spacing: Theme.Space.m) {
-                Picker("保留", selection: $retention) {
-                    Text("不保留").tag(0)
-                    Text("7 天").tag(7)
-                    Text("30 天").tag(30)
-                    Text("90 天").tag(90)
+                Picker("Keep", selection: $retention) {
+                    Text("Do not keep").tag(0)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
                 }
                 .frame(width: 220)
-                Button("在 Finder 顯示") { NSWorkspace.shared.open(SpeechEngine.audioDir) }
+                Button("Show in Finder") { NSWorkspace.shared.open(SpeechEngine.audioDir) }
             }
-            Text("留下的是辨識器實際聽到的 16 kHz 單聲道音檔，一分鐘約 2 MB，可以在「紀錄」裡展開該筆播放。選「不保留」會停止錄音，並在下次啟動時把已經存下來的檔案一併刪掉——關掉這個功能卻留下一堆舊錄音才是真的糟糕。錄音只留在這台 Mac，不會上傳。")
+            Text("What is kept is the 16 kHz mono audio the recognizer actually heard, about 2 MB per minute, playable by expanding the entry under History. Choosing Do not keep stops recording and deletes the files already saved on the next launch: turning the feature off and leaving a pile of old recordings behind would be the worse outcome. Recordings stay on this Mac and are never uploaded.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -646,15 +650,15 @@ private struct ReplacementsPage: View {
     @State private var rules: [ReplacementRule] = []
 
     var body: some View {
-        Section("取代規則") {
-            Text("AI 整理完、貼上之前，照順序做一次字面取代。第 1 條的結果會再交給第 2 條，所以順序有意義。適合固定的錯字、公司內部寫法，或把「笑臉」換成你要的符號。")
+        Section("Replacements") {
+            Text("After the AI cleans the text up and before it is pasted, these literal replacements run in order. The result of rule 1 is handed to rule 2, so the order matters. Good for a misrecognition that keeps coming back, an in-house spelling, or turning a spoken word into the symbol you want.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: Theme.Space.s) {
-                Text("啟用").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 30)
-                Text("找").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 170, alignment: .leading)
-                Text("換成").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 170, alignment: .leading)
-                Text("Aa 區分大小寫　.* 正規表示式").font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                Text("On").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 30)
+                Text("Find").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 170, alignment: .leading)
+                Text("Replace with").font(Theme.caption).foregroundStyle(Theme.textTertiary).frame(width: 170, alignment: .leading)
+                Text("Aa case-sensitive   .* regular expression").font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 Spacer(minLength: 0)
             }
             ForEach(Array(rules.enumerated()), id: \.element.id) { index, _ in
@@ -665,9 +669,9 @@ private struct ReplacementsPage: View {
                         remove: { remove(index) })
             }
             if rules.isEmpty {
-                Text("還沒有任何規則。").font(Theme.body).foregroundStyle(Theme.textTertiary)
+                Text("No rules yet.").font(Theme.body).foregroundStyle(Theme.textTertiary)
             }
-            Button { rules.append(ReplacementRule()) } label: { Label("新增規則", systemImage: "plus") }
+            Button { rules.append(ReplacementRule()) } label: { Label("New Rule", systemImage: "plus") }
                 // An unsaved row still has id 0, and two of them would collide as ForEach ids.
                 .disabled(rules.last.map { $0.find.isEmpty } ?? false)
         }
@@ -703,14 +707,14 @@ private struct RuleRow: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: Theme.Space.s) {
                 Toggle("", isOn: $rule.enabled).labelsHidden().frame(width: 30)
-                TextField("", text: $rule.find, prompt: Text("要被換掉的字"))
+                TextField("", text: $rule.find, prompt: Text("Text to replace"))
                     .font(Theme.mono).frame(width: 170)
-                TextField("", text: $rule.replace, prompt: Text("換成（可留空＝刪掉）"))
+                TextField("", text: $rule.replace, prompt: Text("Replacement (empty deletes it)"))
                     .font(Theme.mono).frame(width: 170)
                 Toggle("Aa", isOn: $rule.caseSensitive).toggleStyle(.button)
-                    .help("區分大小寫")
+                    .help("Case-sensitive")
                 Toggle(".*", isOn: $rule.isRegex).toggleStyle(.button)
-                    .help("把「找」當成正規表示式")
+                    .help("Treat Find as a regular expression")
                 Spacer(minLength: 0)
                 Button { move(-1) } label: { Image(systemName: "chevron.up") }
                     .buttonStyle(.borderless).disabled(!canMoveUp)
@@ -720,7 +724,7 @@ private struct RuleRow: View {
                     .buttonStyle(.borderless)
             }
             if regexBroken {
-                Text("這個正規表示式無法編譯，這條規則會被整條略過，其他規則照常執行。")
+                Text("This regular expression does not compile. The rule is skipped whole; the others still run.")
                     .font(Theme.caption).foregroundStyle(Theme.danger)
             }
         }
@@ -745,18 +749,18 @@ private struct AppRulesPage: View {
     @State private var newMode = ""
 
     var body: some View {
-        Section("依 App 或網站自動換模式") {
-            Text("在這些 App 或網站裡按下快捷鍵時，直接改用指定的模式，不必記第二組按鍵。")
+        Section("Switch mode by app or website") {
+            Text("In these apps or on these sites the shortcut switches straight to the mode you name here, so there is no second key combination to remember.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("比對順序：App＋網站 → 只有網站 → 只有 App；同一層由網域較長的勝出，都沒中就用按鍵選的模式。網站只在瀏覽器最前面時才有意義，而且子網域也算（填 google.com 會命中 docs.google.com，但不會命中 evilgoogle.com）。")
+            Text("Match order: app and site, then site alone, then app alone. Within a tier the longer domain wins, and when nothing matches, the mode chosen by the key is used. A site only means anything while a browser is frontmost, and subdomains count: google.com matches docs.google.com but not evilgoogle.com.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(Array(rules.enumerated()), id: \.element.id) { index, _ in
                 AppRuleRow(rule: $rules[index], modes: modes) { remove(index) }
             }
             if rules.isEmpty {
-                Text("還沒有任何規則。").font(Theme.body).foregroundStyle(Theme.textTertiary)
+                Text("No rules yet.").font(Theme.body).foregroundStyle(Theme.textTertiary)
             }
             adder
         }
@@ -771,16 +775,16 @@ private struct AppRulesPage: View {
 
     private var adder: some View {
         HStack(spacing: Theme.Space.s) {
-            Button("選擇 App…", action: pickApp)
-            Text(newAppName.isEmpty ? "任何 App" : newAppName)
+            Button("Choose App…", action: pickApp)
+            Text(newAppName.isEmpty ? String(localized: "Any app") : newAppName)
                 .font(Theme.body).foregroundStyle(newAppName.isEmpty ? Theme.textTertiary : Theme.textPrimary)
                 .frame(width: 130, alignment: .leading).lineLimit(1)
-            TextField("", text: $newHost, prompt: Text("網站（選填）")).frame(width: 150)
+            TextField("", text: $newHost, prompt: Text("Website (optional)")).frame(width: 150)
             Picker("", selection: $newMode) {
                 ForEach(modes) { Text($0.displayName).tag($0.id) }
             }
             .labelsHidden().frame(width: 130)
-            Button("新增") {
+            Button("Add") {
                 Store.shared.saveAppRule(AppRule(bundleID: newBundleID, host: newHost, modeID: newMode))
                 newBundleID = ""; newAppName = ""; newHost = ""
                 // Re-read rather than append: (app, host) is an upsert, so a repeat pair edits
@@ -797,7 +801,7 @@ private struct AppRulesPage: View {
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowsMultipleSelection = false
-        panel.prompt = "選擇"
+        panel.prompt = String(localized: "Choose")
         guard panel.runModal() == .OK, let url = panel.url,
               let id = Bundle(url: url)?.bundleIdentifier else { return }
         newBundleID = id
@@ -822,8 +826,8 @@ private struct AppRuleRow: View {
             Text(Self.appName(rule.bundleID))
                 .font(Theme.body).foregroundStyle(Theme.textPrimary)
                 .frame(width: 150, alignment: .leading).lineLimit(1)
-                .help(rule.bundleID.isEmpty ? "任何 App" : rule.bundleID)
-            TextField("", text: $rule.host, prompt: Text("任何網站"))
+                .help(rule.bundleID.isEmpty ? String(localized: "Any app") : rule.bundleID)
+            TextField("", text: $rule.host, prompt: Text("Any website"))
                 .font(Theme.mono).frame(width: 170)
             Image(systemName: "arrow.right").font(.system(size: 10))
                 .foregroundStyle(Theme.textTertiary)
@@ -840,7 +844,7 @@ private struct AppRuleRow: View {
 
     /// A bundle id is what the rule stores, but nobody recognises com.apple.dt.Xcode at a glance.
     static func appName(_ bundleID: String) -> String {
-        guard !bundleID.isEmpty else { return "任何 App" }
+        guard !bundleID.isEmpty else { return String(localized: "Any app") }
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
         else { return bundleID }
         return FileManager.default.displayName(atPath: url.path)
@@ -853,13 +857,15 @@ private struct AutomationPage: View {
     @AppStorage(Prefs.urlSchemeEnabled) private var urlScheme = false
     @AppStorage(Prefs.mcpEnabled) private var mcp = false
 
-    private static let urlActions = """
-    opentalktype://start?mode=dictate    開始聽寫，指定模式
-    opentalktype://stop                  結束這一次，整理並貼上
-    opentalktype://cancel                取消這一次，不貼上也不留紀錄
-    opentalktype://run?mode=dictate&text=…  跳過麥克風，直接整理這段文字
-    opentalktype://paste-last            把上一次的結果再貼一次
-    """
+    private static var urlActions: String {
+        String(localized: """
+        opentalktype://start?mode=dictate         Start dictating in the given mode
+        opentalktype://stop                       Finish this session, clean up and paste
+        opentalktype://cancel                     Cancel this session, paste nothing, record nothing
+        opentalktype://run?mode=dictate&text=…    Skip the microphone and clean up this text
+        opentalktype://paste-last                 Paste the previous result again
+        """)
+    }
 
     private var mcpSnippet: String {
         let path = Bundle.main.executablePath ?? "/Applications/OpenTalkType.app/Contents/MacOS/OpenTalkType"
@@ -876,24 +882,24 @@ private struct AutomationPage: View {
     }
 
     var body: some View {
-        Section("網址控制") {
-            Toggle("允許 opentalktype:// 連結控制這個 App", isOn: $urlScheme)
-            Text("預設關閉，因為任何網頁都能打開這種連結。開啟後可以用「捷徑」、Raycast、Keyboard Maestro 或一行 open 指令觸發聽寫。認得的動作：")
+        Section("URL control") {
+            Toggle("Allow opentalktype:// links to control this app", isOn: $urlScheme)
+            Text("Off by default, because any web page can open a link like this. Turn it on to trigger dictation from Shortcuts, Raycast, Keyboard Maestro or a one-line open command. The actions it understands:")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             CodeBlock(text: Self.urlActions)
-            Text("mode 省略時視為 dictate；填了不存在的模式會整個不做事，而不是退回預設模式。run 的文字上限 20,000 字。")
+            Text("Leaving mode out means dictate. Naming a mode that does not exist does nothing at all, rather than falling back to the default. Text passed to run is capped at 20,000 characters.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("MCP 伺服器") {
-            Toggle("允許以 --mcp 提供 MCP 服務", isOn: $mcp)
-            Text("讓 Claude Code 之類的用戶端讀取紀錄與字典、觸發聽寫、整理文字。預設關閉：任何能執行這個檔案的本機程式都連得上，等於把聽寫紀錄開放給它。開啟後把下面這段貼進用戶端的 MCP 設定：")
+        Section("MCP server") {
+            Toggle("Allow this app to serve MCP with --mcp", isOn: $mcp)
+            Text("Lets a client such as Claude Code read your history and dictionary, trigger dictation and clean up text. Off by default: any local program that can run this binary can connect, which hands it your dictation history. Once it is on, paste the block below into the client's MCP configuration:")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             CodeBlock(text: mcpSnippet)
-            Text("走標準輸入輸出，不開任何連接埠。把 App 搬到別的位置之後，這段路徑要重新複製一次。")
+            Text("It speaks over standard input and output and opens no port. If you move the app somewhere else, copy this path again.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -918,7 +924,7 @@ private struct CodeBlock: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.cardHover, in: .rect(cornerRadius: Theme.Radius.control))
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.control).strokeBorder(Theme.stroke))
-            Button(copied ? "已複製" : "複製") {
+            Button(copied ? "Copied" : "Copy") {
                 copyToPasteboard(text)
                 copied = true
             }
@@ -935,19 +941,19 @@ private struct BackupPage: View {
     @State private var failed = false
 
     var body: some View {
-        Section("匯出") {
-            Button("匯出設定檔…", action: export)
-            Text("包含模式與提示詞、字典、取代規則、App 規則和偏好設定。")
+        Section("Export") {
+            Button("Export Settings…", action: export)
+            Text("Includes modes and their prompts, the dictionary, replacements, app rules and preferences.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
-            Text("不包含 API 金鑰。金鑰放在 macOS 鑰匙圈，這個功能從頭到尾不會去讀它，所以匯出的檔案可以直接寄給別人或放進版本控制。也不包含聽寫紀錄——那是你說過的話，不是設定。")
+            Text("It does not include API keys. Keys live in the macOS Keychain and this feature never reads them, so the exported file is safe to send to someone else or commit to version control. It does not include your dictation history either: that is what you said, not a setting.")
                 .font(Theme.caption).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("匯入") {
-            Toggle("一併套用檔案裡的偏好設定", isOn: $applyPrefs)
-            Button("匯入設定檔…", action: importBackup)
-            Text("已經存在的東西一律保留：同 id 的模式整個略過，字典只補上新的變體，重複的取代規則和 App 規則跳過。不會刪掉任何現有資料。偏好設定是唯一會被覆蓋的部分，所以上面那個開關可以關掉。")
+        Section("Import") {
+            Toggle("Also apply the preferences in the file", isOn: $applyPrefs)
+            Button("Import Settings…", action: importBackup)
+            Text("Anything you already have is kept: a mode with the same id is skipped whole, the dictionary only gains variants it did not have, and duplicate replacements and app rules are skipped. Nothing existing is ever deleted. Preferences are the one thing that gets overwritten, which is why the switch above can turn that off.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             if !status.isEmpty {
@@ -968,7 +974,7 @@ private struct BackupPage: View {
         do {
             try Store.shared.exportBackup().write(to: url)
             failed = false
-            status = "已匯出到 \(url.lastPathComponent)。"
+            status = String(format: String(localized: "Exported to %@."), url.lastPathComponent)
         } catch {
             failed = true
             status = error.localizedDescription
@@ -979,13 +985,13 @@ private struct BackupPage: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
-        panel.prompt = "匯入"
+        panel.prompt = String(localized: "Import")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let s = try Store.shared.importBackup(Data(contentsOf: url), applyPrefs: applyPrefs)
             failed = false
-            status = "匯入完成：模式 \(s.modes)、詞彙 \(s.terms)、取代規則 \(s.replacements)、"
-                + "App 規則 \(s.appRules)、偏好設定 \(s.prefs)，略過 \(s.skipped) 筆。"
+            status = String(format: String(localized: "Imported %lld modes, %lld terms, %lld replacements, %lld app rules and %lld preferences. %lld skipped."),
+                            s.modes, s.terms, s.replacements, s.appRules, s.prefs, s.skipped)
         } catch {
             failed = true
             status = error.localizedDescription
@@ -1007,12 +1013,12 @@ struct ProviderFields: View {
     private var current: Provider { Provider(rawValue: provider) ?? .deepseek }
 
     var body: some View {
-        Picker("供應商", selection: $provider) {
+        Picker("Provider", selection: $provider) {
             ForEach(Provider.allCases) { Text($0.displayName).tag($0.rawValue) }
         }
         .frame(width: 320)
 
-        TextField("模型", text: $model, prompt: Text(current.defaultModel))
+        TextField("Model", text: $model, prompt: Text(current.defaultModel))
             .frame(width: 320)
 
         if let detail = current.detail {
@@ -1021,21 +1027,22 @@ struct ProviderFields: View {
         }
 
         if current.needsBaseURL {
-            TextField("伺服器網址", text: $baseURL, prompt: Text("http://127.0.0.1:11434/v1"))
+            TextField("Server URL", text: $baseURL, prompt: Text("http://127.0.0.1:11434/v1"))
                 .frame(width: 320)
         } else if current == .claudeCode {
-            TextField("claude 指令路徑", text: $claudeBin, prompt: Text(Prefs.claudeBin ?? "找不到，請填完整路徑"))
+            TextField("Path to the claude command", text: $claudeBin,
+                      prompt: Text(Prefs.claudeBin ?? String(localized: "Not found, enter the full path")))
                 .frame(width: 320)
             Text(Prefs.claudeBin == nil
-                 ? "偵測不到 claude 指令。裝好 Claude Code 後填入完整路徑（例如 ~/.local/bin/claude）。"
-                 : "留空即自動尋找。逐字稿仍會送到 Anthropic，只是走訂閱計費而非 API 金鑰。")
+                 ? "The claude command was not found. Install Claude Code, then enter the full path, for example ~/.local/bin/claude."
+                 : "Leave this empty to find it automatically. Transcripts still go to Anthropic; they are billed to your subscription instead of an API key.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         } else {
-            SecureField("API 金鑰", text: $key)
+            SecureField("API key", text: $key)
                 .frame(width: 320)
                 .onChange(of: key) { Keychain.set(key, for: Keychain.account(for: current)) }
                 .task(id: provider) { key = Keychain.get(Keychain.account(for: current)) ?? "" }
-            Text("金鑰存在 macOS 鑰匙圈，不會寫進偏好設定，也不會出現在任何紀錄或匯出的設定檔裡。")
+            Text("The key is stored in the macOS Keychain. It is never written to preferences and never appears in the history or in an exported settings file.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -1051,22 +1058,22 @@ private struct AIPage: View {
     }
 
     var body: some View {
-        Section("供應商") { ProviderFields() }
+        Section("Provider") { ProviderFields() }
 
-        Section("語音辨識") {
-            Picker("辨識引擎", selection: $engine) {
+        Section("Speech recognition") {
+            Picker("Recognition engine", selection: $engine) {
                 ForEach(RecognitionEngine.allCases) { Text($0.displayName).tag($0.rawValue) }
             }
             .frame(width: 460)
             Text(currentEngine.detail).font(Theme.caption).foregroundStyle(Theme.textTertiary)
-            Picker("辨識語言", selection: $locale) {
+            Picker("Recognition language", selection: $locale) {
                 ForEach(recognitionLocales, id: \.code) { Text($0.name).tag($0.code) }
             }
             .frame(width: 320)
         }
 
-        Section("提示詞") {
-            Text("和「模式」裡的提示詞欄位是同一個值，這裡是把全部排在一起改。")
+        Section("Prompts") {
+            Text("These are the same values as the prompt field under Modes; this page just lines them all up in one place.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
             ForEach(modes) { PromptEditor(mode: $0) }
         }
@@ -1089,7 +1096,7 @@ private struct PromptEditor: View {
                 Label(mode.displayName, systemImage: mode.sfSymbol)
                     .font(Theme.body).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Button("回復預設") { text = "" }
+                Button("Restore Default") { text = "" }
                     .disabled(text.isEmpty)
                     .font(Theme.caption)
             }
@@ -1112,27 +1119,27 @@ private struct PermissionsPage: View {
     @Bindable var state: AppState
 
     var body: some View {
-        Section("狀態") {
-            PermissionRow(title: "麥克風", ok: state.micGranted, action: "開啟麥克風設定") {
+        Section("Status") {
+            PermissionRow(title: "Microphone", ok: state.micGranted, action: "Open Microphone Settings") {
                 Permissions.openMicrophoneSettings()
             }
-            PermissionRow(title: "輔助使用", ok: state.axTrusted, action: "開啟輔助使用設定") {
+            PermissionRow(title: "Accessibility", ok: state.axTrusted, action: "Open Accessibility Settings") {
                 Permissions.openAccessibilitySettings()
             }
             HStack(spacing: Theme.Space.m) {
-                Button("重新要求權限") { state.requestPermissions() }
-                Button("重新檢查") { state.refreshPermissions() }
+                Button("Ask Again") { state.requestPermissions() }
+                Button("Check Again") { state.refreshPermissions() }
             }
         }
 
-        Section("fn 鍵") {
-            Text("如果按住 fn 會跳出表情符號或切換輸入法，請到「系統設定 → 鍵盤 → 按下 🌐 鍵時」改成「不執行任何動作」，OpenTalkType 才收得到完整的按住與放開。")
+        Section("The fn key") {
+            Text("If holding fn brings up the emoji picker or switches input source, go to System Settings → Keyboard → Press Globe key to and choose Do Nothing, so OpenTalkType receives the full press and release.")
                 .font(Theme.body).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Section("重新編譯之後") {
-            Text("這個 App 用 ad-hoc 簽章。每次重新編譯，系統會把它當成另一個 App，於是「輔助使用」的授權其實已經失效，但清單裡的勾勾看起來還在。遇到 fn 沒反應時，把清單裡的 OpenTalkType 移除再加一次。")
+        Section("After a rebuild") {
+            Text("This app is ad-hoc signed. Every rebuild looks like a different app to the system, so the Accessibility grant is really gone even though the checkbox in the list still looks ticked. When fn stops responding, remove OpenTalkType from that list and add it again.")
                 .font(Theme.body).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1141,9 +1148,9 @@ private struct PermissionsPage: View {
 }
 
 private struct PermissionRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let ok: Bool
-    let action: String
+    let action: LocalizedStringKey
     let open: () -> Void
 
     var body: some View {
@@ -1151,7 +1158,7 @@ private struct PermissionRow: View {
             Circle().fill(ok ? Theme.success : Theme.warning).frame(width: 8, height: 8)
             Text(title).font(Theme.body).foregroundStyle(Theme.textPrimary)
                 .frame(width: 80, alignment: .leading)
-            Text(ok ? "已授權" : "未授權").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+            Text(ok ? "Granted" : "Not granted").font(Theme.caption).foregroundStyle(Theme.textSecondary)
             Spacer()
             Button(action, action: open)
         }
@@ -1161,6 +1168,9 @@ private struct PermissionRow: View {
 // MARK: - 關於
 
 private struct AboutPage: View {
+    private let updater = Updater.shared
+    @State private var auto = false
+
     private var version: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
@@ -1170,12 +1180,29 @@ private struct AboutPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             Text("OpenTalkType").font(Theme.title).foregroundStyle(Theme.textPrimary)
-            Text("版本 \(version)").font(Theme.body).foregroundStyle(Theme.textSecondary)
-            Text("以 MIT 授權釋出的開放原始碼軟體。語音辨識在裝置上完成，只有要整理的逐字稿會送到你自己設定的 AI 供應商。")
+            Text("Version \(version)").font(Theme.body).foregroundStyle(Theme.textSecondary)
+            Text("Open-source software released under the MIT license. Speech recognition runs on device; only the transcript to be cleaned up is sent to the AI provider you configured.")
                 .font(Theme.body).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Link("原始碼與問題回報", destination: repositoryURL).font(Theme.body)
+            Link("Source code and issue tracker", destination: repositoryURL).font(Theme.body)
+
+            if updater.isActive {
+                Divider().padding(.vertical, Theme.Space.s)
+                Toggle("Check for updates automatically", isOn: $auto)
+                    .onChange(of: auto) { updater.automaticallyChecks = auto }
+                Text("Updates are verified against a signing key built into this app, so an update cannot be swapped for someone else's build. The first install is a separate matter and is not signed; see the README.")
+                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheck)
+            } else {
+                Divider().padding(.vertical, Theme.Space.s)
+                Text("Automatic updates are off in a development build. Move the app to Applications to enable them.")
+                    .font(Theme.caption).foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .task { auto = updater.automaticallyChecks }
     }
 }
 
@@ -1184,10 +1211,10 @@ private struct AboutPage: View {
 /// A titled block. SwiftUI's own Section only earns its keep inside a List or a Form, and both
 /// bring styling this design does not want.
 private struct Section<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder let content: Content
 
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }

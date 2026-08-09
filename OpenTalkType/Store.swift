@@ -83,8 +83,8 @@ enum TermSource: String, CaseIterable, Identifiable, Sendable, Codable {
 
     var displayName: String {
         switch self {
-        case .manual: "手動加入"
-        case .auto: "自動加入"
+        case .manual: String(localized: "Added by hand")
+        case .auto: String(localized: "Added automatically")
         }
     }
 
@@ -246,10 +246,14 @@ enum BackupError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unreadable: "這不是 OpenTalkType 的設定檔，或檔案已損毀。"
-        case .unsupportedVersion(let v): "這個設定檔的版本（\(v)）比目前的 App 新，請先更新 App。"
-        case .invalid(let why): "設定檔內容有問題：\(why)"
-        case .writeFailed: "寫入資料庫失敗，已還原成匯入前的狀態。"
+        case .unreadable:
+            String(localized: "This is not an OpenTalkType settings file, or the file is damaged.")
+        case .unsupportedVersion(let v):
+            String(format: String(localized: "This settings file is version %d, which is newer than this app. Update the app first."), v)
+        case .invalid(let why):
+            String(format: String(localized: "There is a problem with the settings file: %@"), why)
+        case .writeFailed:
+            String(localized: "Could not write to the database. Everything was restored to how it was before the import.")
         }
     }
 }
@@ -367,9 +371,15 @@ final class Store: @unchecked Sendable {
     /// one without disturbing what the user has already changed.
     private func seedModes() {
         let seeds: [(String, String, String, String, Int, Int, Int)] = [
-            ("dictate", "聽寫", "把口語整理成通順的文字，插入游標位置。", "waveform", 0, 0, 0),
-            ("translate", "翻譯", "用中文說，輸出道地的目標語言。", "character.bubble", 0, 1, 1),
-            ("ask", "問問題", "對選取的文字下指令，結果覆蓋選取範圍。", "sparkles", 1, 0, 2),
+            ("dictate", String(localized: "Dictate"),
+             String(localized: "Cleans up what you said and inserts it at the cursor."),
+             "waveform", 0, 0, 0),
+            ("translate", String(localized: "Translate"),
+             String(localized: "Speak in one language, get idiomatic text in another."),
+             "character.bubble", 0, 1, 1),
+            ("ask", String(localized: "Ask"),
+             String(localized: "Give an instruction about the selected text and replace it with the result."),
+             "sparkles", 1, 0, 2),
         ]
         for (id, name, sub, sym, sel, tr, pos) in seeds {
             exec("""
@@ -1093,32 +1103,38 @@ final class Store: @unchecked Sendable {
 
     /// Everything import checks before it writes a single row.
     static func validate(_ b: Backup) throws {
-        guard b.version >= 1 else { throw BackupError.invalid("版本號不正確") }
+        guard b.version >= 1 else {
+            throw BackupError.invalid(String(localized: "the version number is not valid"))
+        }
         guard b.version <= Backup.currentVersion else { throw BackupError.unsupportedVersion(b.version) }
         for m in b.modes {
             guard !m.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw BackupError.invalid("有一個模式沒有 id")
+                throw BackupError.invalid(String(localized: "a mode has no id"))
             }
             guard !m.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw BackupError.invalid("模式「\(m.id)」沒有名稱")
+                throw BackupError.invalid(String(format: String(localized: "the mode “%@” has no name"), m.id))
             }
         }
         guard Set(b.modes.map(\.id)).count == b.modes.count else {
-            throw BackupError.invalid("有重複的模式 id")
+            throw BackupError.invalid(String(localized: "two modes share the same id"))
         }
         for t in b.terms where t.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            throw BackupError.invalid("字典裡有一筆沒有文字")
+            throw BackupError.invalid(String(localized: "a dictionary entry has no text"))
         }
         for r in b.replacements {
-            guard !r.find.isEmpty else { throw BackupError.invalid("取代規則沒有填要找的文字") }
+            guard !r.find.isEmpty else {
+                throw BackupError.invalid(String(localized: "a replacement rule has nothing to find"))
+            }
             guard !r.isRegex || regexIsValid(r.find) else {
-                throw BackupError.invalid("正規表達式無法編譯：\(r.find)")
+                throw BackupError.invalid(String(format: String(localized: "this regular expression does not compile: %@"), r.find))
             }
         }
         for r in b.appRules {
-            guard !r.modeID.isEmpty else { throw BackupError.invalid("App 規則沒有指定模式") }
+            guard !r.modeID.isEmpty else {
+                throw BackupError.invalid(String(localized: "an app rule does not say which mode to use"))
+            }
             guard !(r.bundleID.isEmpty && Self.normalizeHost(r.host).isEmpty) else {
-                throw BackupError.invalid("App 規則要至少指定一個 app 或網站")
+                throw BackupError.invalid(String(localized: "an app rule needs at least an app or a site"))
             }
         }
     }

@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>zh_TW</string>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>OpenTalkType</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -12,38 +14,44 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
-	<key>CFBundleDisplayName</key>
-	<string>OpenTalkType</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-	<key>LSUIElement</key>
-	<false/>
-	<key>NSHumanReadableCopyright</key>
-	<string>Copyright (c) 2026 Sammy Lin. MIT License.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>OpenTalkType 需要麥克風才能把你說的話轉成文字。錄音只在這台 Mac 上處理，不會上傳。</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>OpenTalkType 使用內建語音辨識把錄音轉成文字，全程在這台 Mac 上完成。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleURLName</key>
-			<string>ai.3mi.opentalktype.url</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>ai.3mi.opentalktype.url</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>opentalktype</string>
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>LSUIElement</key>
+	<false/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>OpenTalkType 需要控制其他 App 才能把整理好的文字貼到你的游標位置。</string>
+	<string>OpenTalkType controls other apps so it can paste the finished text at your cursor.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright (c) 2026 Sammy Lin. MIT License.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenTalkType needs the microphone to turn what you say into text. Recordings are handled on this Mac and never uploaded.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>OpenTalkType uses the built-in speech recognition to turn recordings into text, entirely on this Mac.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://sammylin.github.io/OpenTalkType/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>t7v+mi0vWx2FE6+nDS6ALGpcJhPYUrS3Kl7yt8+aie8=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

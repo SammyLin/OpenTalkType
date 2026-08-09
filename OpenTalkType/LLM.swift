@@ -318,7 +318,8 @@ func runShellAction(_ command: String, text: String, mode: Mode,
         defer { try? FileManager.default.removeItem(at: errURL) }
 
         do { try p.run() } catch {
-            throw LLMError("無法執行「\(label)」的指令：\(error.localizedDescription)")
+            throw LLMError(String(format: String(localized: "Could not run the command for “%@”: %@"),
+                                  label, error.localizedDescription))
         }
         // ponytail: one blocking write. A transcript is far under the 64 KB pipe buffer, and a
         // command that never reads stdin hits the timeout below rather than hanging forever.
@@ -334,11 +335,16 @@ func runShellAction(_ command: String, text: String, mode: Mode,
 
         guard p.terminationStatus == 0 else {
             if p.terminationReason == .uncaughtSignal {
-                throw LLMError("「\(label)」的指令超過 \(Int(shellTimeout)) 秒沒有結束，已中止。")
+                throw LLMError(String(format: String(localized: "The command for “%@” did not finish within %d seconds and was stopped."),
+                                      label, Int(shellTimeout)))
             }
             let detail = (try? String(contentsOf: errURL, encoding: .utf8))?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw LLMError("「\(label)」的指令失敗（\(p.terminationStatus)）：\(detail.isEmpty ? "指令沒有說明原因，請到「設定 → 模式」檢查。" : detail)")
+            let why = detail.isEmpty
+                ? String(localized: "The command gave no reason. Check it in Settings > Modes.")
+                : detail
+            throw LLMError(String(format: String(localized: "The command for “%@” failed (%d): %@"),
+                                  label, Int(p.terminationStatus), why))
         }
 
         let produced = String(decoding: out, as: UTF8.self)
@@ -357,7 +363,7 @@ func runShellAction(_ command: String, text: String, mode: Mode,
 /// would otherwise be parsed as a flag.
 private func callClaudeCLI(system: String, user: String, model: String) async throws -> String {
     guard let bin = Prefs.claudeBin else {
-        throw LLMError("找不到 claude 指令。請先安裝 Claude Code，或到「設定 → AI」填入完整路徑。")
+        throw LLMError(String(localized: "Could not find the claude command. Install Claude Code, or enter its full path in Settings > AI."))
     }
 
     // Detached because the body blocks on pipe reads and waitUntilExit. A nonisolated async
@@ -381,7 +387,8 @@ private func callClaudeCLI(system: String, user: String, model: String) async th
         p.standardInput = stdin; p.standardOutput = stdout; p.standardError = stderr
 
         do { try p.run() } catch {
-            throw LLMError("無法執行 claude：\(error.localizedDescription)")
+            throw LLMError(String(format: String(localized: "Could not run claude: %@"),
+                                  error.localizedDescription))
         }
         stdin.fileHandleForWriting.write(Data(user.utf8))
         try? stdin.fileHandleForWriting.close()
@@ -404,14 +411,19 @@ private func callClaudeCLI(system: String, user: String, model: String) async th
             let detail = String(decoding: err, as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if p.terminationReason == .uncaughtSignal {
-                throw LLMError("claude 超過 \(Int(cliTimeout)) 秒沒有回應，已中止。原始逐字稿保留在剪貼簿。")
+                throw LLMError(String(format: String(localized: "claude did not respond within %d seconds and was stopped. The original transcript is on the clipboard."),
+                                      Int(cliTimeout)))
             }
-            throw LLMError("claude 執行失敗（\(p.terminationStatus)）：\(detail.isEmpty ? "請確認已登入 Claude Code，在終端機執行 claude 看看。" : detail)")
+            let why = detail.isEmpty
+                ? String(localized: "Make sure you are signed in to Claude Code by running claude in Terminal.")
+                : detail
+            throw LLMError(String(format: String(localized: "claude failed (%d): %@"),
+                                  Int(p.terminationStatus), why))
         }
         let text = String(decoding: out, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            throw LLMError("claude 沒有回傳文字，請確認已登入（終端機執行 claude 檢查）。")
+            throw LLMError(String(localized: "claude returned no text. Make sure you are signed in by running claude in Terminal."))
         }
         return text
     }.value
@@ -435,7 +447,8 @@ private func callProvider(system: String, user: String) async throws -> String {
 
     let key = provider.needsKey ? (Keychain.get(Keychain.account(for: provider)) ?? "") : ""
     if provider.needsKey, key.isEmpty {
-        throw LLMError("尚未設定 \(provider.displayName) 的 API 金鑰，請到「設定 → AI」填入。")
+        throw LLMError(String(format: String(localized: "No API key set for %@. Add one in Settings > AI."),
+                              provider.displayName))
     }
 
     var request: URLRequest
@@ -443,7 +456,7 @@ private func callProvider(system: String, user: String) async throws -> String {
 
     switch provider {
     case .claudeCode:
-        throw LLMError("內部錯誤：Claude Code 供應商不該走 HTTP 路徑。")   // handled above, before this point
+        throw LLMError(String(localized: "Internal error: the Claude Code provider should never take the HTTP path."))   // handled above, before this point
 
     case .anthropic:
         request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
@@ -466,7 +479,7 @@ private func callProvider(system: String, user: String) async throws -> String {
         default: base = "https://api.openai.com/v1"
         }
         guard let url = URL(string: base + "/chat/completions") else {
-            throw LLMError("本機伺服器網址無效，請到「設定 → AI」檢查。")
+            throw LLMError(String(localized: "The local server address is not valid. Check it in Settings > AI."))
         }
         request = URLRequest(url: url)
         if !key.isEmpty { request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization") }
@@ -502,20 +515,23 @@ private func callProvider(system: String, user: String) async throws -> String {
     do {
         result = try await URLSession.shared.data(for: request)
     } catch {
-        throw LLMError("連不上 \(provider.displayName)，請檢查網路後再試一次。")
+        throw LLMError(String(format: String(localized: "Could not reach %@. Check your network and try again."),
+                              provider.displayName))
     }
     let (data, response) = result
 
     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
     guard (200..<300).contains(status) else {
         let detail = (try? JSONDecoder().decode(APIErrorEnvelope.self, from: data))?.error?.message
-        throw LLMError("\(provider.displayName) 回應 \(status)：\(detail ?? "請檢查金鑰與模型名稱。")")
+        throw LLMError(String(format: String(localized: "%@ returned %d: %@"),
+                              provider.displayName, status,
+                              detail ?? String(localized: "Check your API key and model name.")))
     }
 
     let text: String?
     switch provider {
     case .claudeCode:
-        throw LLMError("內部錯誤：Claude Code 供應商不該走 HTTP 路徑。")
+        throw LLMError(String(localized: "Internal error: the Claude Code provider should never take the HTTP path."))
 
     case .anthropic:
         text = (try? JSONDecoder().decode(AnthropicReply.self, from: data))?
@@ -529,7 +545,8 @@ private func callProvider(system: String, user: String) async throws -> String {
     }
 
     guard let text, !text.isEmpty else {
-        throw LLMError("\(provider.displayName) 沒有回傳文字，請換個模型再試。")
+        throw LLMError(String(format: String(localized: "%@ returned no text. Try a different model."),
+                              provider.displayName))
     }
     return text
 }

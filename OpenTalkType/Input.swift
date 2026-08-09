@@ -386,7 +386,10 @@ func insertText(_ text: String) async -> Bool {
     // Nothing synthetic reaches a secure field, so posting ⌘V would silently do nothing at all.
     if SecureInput.enabled {
         _ = writePasteboard(body, token: nil)
-        await MainActor.run { AppState.shared.notify("安全輸入開啟中，無法自動貼上", SecureInput.advice) }
+        await MainActor.run {
+            AppState.shared.notify(String(localized: "Cannot paste while secure input is on"),
+                                   SecureInput.advice)
+        }
         return true
     }
 
@@ -680,7 +683,7 @@ private func waitForModifiersToClear(timeout: TimeInterval = 0.6) async {
 enum SecureInput {
     static var enabled: Bool { IsSecureEventInputEnabled() }
 
-    static let advice = "有 App 正在使用安全輸入（密碼欄位，或終端機的「安全鍵盤輸入」）。文字已放在剪貼簿，請按 ⌘V。"
+    static let advice = String(localized: "An app is using secure input, either a password field or Secure Keyboard Entry in Terminal. The text is on the clipboard, so press ⌘V.")
 }
 
 // MARK: - Permissions
@@ -739,15 +742,15 @@ enum PasteMethod: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .paste: "貼上（⌘V）"
-        case .type: "模擬打字"
+        case .paste: String(localized: "Paste (⌘V)")
+        case .type: String(localized: "Simulated typing")
         }
     }
 
     var detail: String {
         switch self {
-        case .paste: "把文字放進剪貼簿再送出 ⌘V，貼完還原剪貼簿。快，絕大多數 App 用這個。"
-        case .type: "逐字送出按鍵事件，完全不碰剪貼簿。長文會看得出來在打字，但終端機和部分遊戲引擎只吃這種。"
+        case .paste: String(localized: "Puts the text on the clipboard, sends ⌘V, then restores the clipboard. Fast, and right for almost every app.")
+        case .type: String(localized: "Sends one key event per character and never touches the clipboard. Long text is visibly typed out, but terminals and some game engines accept nothing else.")
         }
     }
 }
@@ -761,9 +764,9 @@ enum AutoSubmit: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .inherit: "跟隨一般設定"
-        case .on: "一定送出"
-        case .off: "一定不送出"
+        case .inherit: String(localized: "Follow the general setting")
+        case .on: String(localized: "Always send")
+        case .off: String(localized: "Never send")
         }
     }
 

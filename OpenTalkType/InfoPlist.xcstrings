@@ -1,0 +1,147 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType steuert andere Apps, um den fertigen Text an deiner Einfügemarke einzufügen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType controls other apps so it can paste the finished text at your cursor."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType controla otras apps para poder pegar el texto acabado en tu cursor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType pilote d’autres apps afin de coller le texte finalisé à l’emplacement de votre curseur."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType は、仕上がったテキストをカーソル位置に貼り付けるためにほかの App を操作します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType은 완성된 텍스트를 커서 위치에 붙여넣기 위해 다른 앱을 제어합니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType 需要控制其他 App 才能把整理好的文字貼到你的游標位置。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType braucht das Mikrofon, um Gesprochenes in Text zu verwandeln. Aufnahmen werden auf diesem Mac verarbeitet und nie hochgeladen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType needs the microphone to turn what you say into text. Recordings are handled on this Mac and never uploaded."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType necesita el micrófono para convertir en texto lo que dices. Las grabaciones se procesan en este Mac y nunca se suben."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType a besoin du microphone pour transformer vos paroles en texte. Les enregistrements sont traités sur ce Mac et ne sont jamais envoyés ailleurs."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType は、話した内容をテキストに変換するためにマイクを使用します。録音はこの Mac 上でのみ処理され、アップロードされることはありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType은 말한 내용을 텍스트로 바꾸기 위해 마이크를 사용합니다. 녹음은 이 Mac에서만 처리되며 업로드되지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType 需要麥克風才能把你說的話轉成文字。錄音只在這台 Mac 上處理，不會上傳。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType nutzt die integrierte Spracherkennung, um Aufnahmen in Text zu verwandeln – vollständig auf diesem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType uses the built-in speech recognition to turn recordings into text, entirely on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType usa el reconocimiento de voz integrado para convertir las grabaciones en texto, por completo en este Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType utilise la reconnaissance vocale intégrée pour transformer les enregistrements en texte, entièrement sur ce Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType は内蔵の音声認識を使って録音をテキストに変換します。処理はすべてこの Mac 上で行われます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType은 내장 음성 인식을 사용해 녹음을 텍스트로 바꾸며, 모든 처리는 이 Mac에서 이루어집니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenTalkType 使用內建語音辨識把錄音轉成文字，全程在這台 Mac 上完成。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

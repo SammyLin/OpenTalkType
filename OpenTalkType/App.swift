@@ -203,9 +203,9 @@ enum Pane: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .home: "首頁"
-        case .history: "紀錄"
-        case .dictionary: "字典"
+        case .home: String(localized: "Home")
+        case .history: String(localized: "History")
+        case .dictionary: String(localized: "Dictionary")
         }
     }
 
@@ -225,10 +225,10 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .general: "一般"
-        case .ai: "AI"
-        case .permissions: "權限"
-        case .about: "關於"
+        case .general: String(localized: "General")
+        case .ai: String(localized: "AI")
+        case .permissions: String(localized: "Permissions")
+        case .about: String(localized: "About")
         }
     }
 
@@ -293,9 +293,9 @@ final class AppState {
 
     var phaseLabel: String {
         switch phase {
-        case .idle: "待命"
-        case .listening: "聆聽中"
-        case .thinking: "整理中"
+        case .idle: String(localized: "Idle")
+        case .listening: String(localized: "Listening")
+        case .thinking: String(localized: "Cleaning up")
         }
     }
 
@@ -382,7 +382,7 @@ final class AppState {
                 try await speech.start(phrases: Store.shared.terms().map(\.text))
             } catch {
                 lastError = error.localizedDescription
-                notify("無法開始錄音", error.localizedDescription)
+                notify(String(localized: "Could not start recording"), error.localizedDescription)
                 phase = .idle
                 HUD.shared.hide()
             }
@@ -475,7 +475,8 @@ final class AppState {
             NSPasteboard.general.setString(raw, forType: .string)
             lastResult = ""
             lastError = error.localizedDescription
-            notify("整理失敗，原始逐字稿已複製到剪貼簿", error.localizedDescription)
+            notify(String(localized: "Cleanup failed, the raw transcript is on the clipboard"),
+                   error.localizedDescription)
             attachAudio(Store.shared.insert(mode: mode, raw: raw, cleaned: "", app: app,
                                             targetLang: lang, duration: duration))
             return
@@ -484,8 +485,8 @@ final class AppState {
         lastResult = cleaned
         Timings.mark("llm done \(String(format: "%.2f", Date().timeIntervalSince(t0)))s")
         if await !insertText(cleaned) {
-            lastError = "沒有「輔助使用」權限，無法自動貼上。文字已放在剪貼簿，請按 ⌘V。"
-            notify("無法自動貼上", lastError ?? "")
+            lastError = String(localized: "Without Accessibility permission OpenTalkType cannot paste for you. The text is on the clipboard, so press ⌘V.")
+            notify(String(localized: "Could not paste automatically"), lastError ?? "")
         }
         attachAudio(Store.shared.insert(mode: mode, raw: raw, cleaned: cleaned, app: app,
                                         targetLang: lang, duration: duration,
@@ -535,7 +536,7 @@ final class AppState {
     /// "the panel always comes down" gets its own guard rather than trusting every code path.
     private func withCleanupDeadline(_ work: @escaping @Sendable () async throws -> String) async throws -> String {
         let outcome = await firstOf(seconds: 90, timeout: Result<String, Error>.failure(
-            LLMError("整理超過 90 秒沒有回應，已中止。原始逐字稿保留在剪貼簿。"))) {
+            LLMError(String(localized: "Cleanup got no response for 90 seconds and was stopped. The raw transcript is still on the clipboard.")))) {
             do { return .success(try await work()) } catch { return .failure(error) }
         }
         return try outcome.get()
@@ -546,7 +547,7 @@ final class AppState {
         let text = lastResult.isEmpty ? lastRaw : lastResult
         guard !text.isEmpty else { return }
         if await !insertText(text) {
-            lastError = "沒有「輔助使用」權限，無法自動貼上。文字已放在剪貼簿，請按 ⌘V。"
+            lastError = String(localized: "Without Accessibility permission OpenTalkType cannot paste for you. The text is on the clipboard, so press ⌘V.")
         }
     }
 
@@ -598,12 +599,12 @@ struct OpenTalkTypeApp: App {
         .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("設定…") { state.showSettings = true }
+                Button("Settings…") { state.showSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
             }
         }
 
-        Window("開始設定", id: "onboarding") {
+        Window("Setup", id: "onboarding") {
             OnboardingView(state: state)
                 .environment(state)
         }
@@ -627,32 +628,36 @@ private struct MenuBarMenu: View {
         Divider()
 
         if state.phase == .listening {
-            Button("停止") { state.stopDictation() }
+            Button("Stop") { state.stopDictation() }
         } else {
             ForEach(Mode.allCases) { mode in
-                Button("開始\(mode.displayName)") { state.startDictation(mode) }
+                // The mode's name is user data, so it is substituted into the label rather than
+                // being part of the key.
+                Button(String(format: String(localized: "Start %@"), mode.displayName)) {
+                    state.startDictation(mode)
+                }
             }
         }
 
-        Button("重新貼上") { Task { await state.repasteLast() } }
+        Button("Paste Again") { Task { await state.repasteLast() } }
             .disabled(state.lastResult.isEmpty && state.lastRaw.isEmpty)
 
         Divider()
 
-        Button("開啟主視窗") {
+        Button("Open Main Window") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
-        Button("設定…") {
+        Button("Settings…") {
             state.showSettings = true
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
-        Button("重新執行首次設定") { openWindow(id: "onboarding") }
+        Button("Run Setup Again") { openWindow(id: "onboarding") }
 
         Divider()
 
-        Button("結束 OpenTalkType") { NSApp.terminate(nil) }
+        Button("Quit OpenTalkType") { NSApp.terminate(nil) }
     }
 }
 

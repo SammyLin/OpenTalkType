@@ -50,7 +50,7 @@ private struct Sidebar: View {
                 Text("OpenTalkType")
                     .font(Theme.heading)
                     .foregroundStyle(Theme.textPrimary)
-                Text("版本 \(version)")
+                Text("Version \(version)")
                     .font(Theme.caption)
                     .foregroundStyle(Theme.textTertiary)
             }
@@ -65,13 +65,15 @@ private struct Sidebar: View {
 
             Spacer(minLength: Theme.Space.xl)
 
-            SidebarRow(symbol: SettingsTab.general.sfSymbol, title: "設定", selected: false) {
+            SidebarRow(symbol: SettingsTab.general.sfSymbol, title: String(localized: "Settings"),
+                       selected: false) {
                 state.settingsTab = .general
                 state.showSettings = true
             }
             // ponytail: 說明 lands on the 關於 tab, which already carries the version, licence
             // and repository link. A dedicated help pane can replace this action later.
-            SidebarRow(symbol: "questionmark.circle", title: "說明", selected: false) {
+            SidebarRow(symbol: "questionmark.circle", title: String(localized: "Help"),
+                       selected: false) {
                 state.settingsTab = .about
                 state.showSettings = true
             }
@@ -123,10 +125,10 @@ private struct HomePane: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
-                    Text("說出來，直接變成寫好的字")
+                    Text("Speak naturally, get finished text")
                         .font(Theme.title)
                         .foregroundStyle(Theme.textPrimary)
-                    Text("按住快捷鍵開始說話，放開就整理好貼進游標位置。")
+                    Text("Hold the shortcut and talk. Let go, and polished text lands at your cursor.")
                         .font(Theme.body)
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -179,11 +181,14 @@ private struct ModesCard: View {
             }
             Rectangle().fill(Theme.stroke).frame(height: 1)
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                TriggerHint(caps: ["fn"], text: "按住說話，放開就整理並貼上。")
+                TriggerHint(caps: ["fn"],
+                            text: String(localized: "Hold to talk. Release to clean up and paste."))
                 if handsFree {
-                    TriggerHint(caps: ["fn ×2"], text: "連按兩下鎖住麥克風，手可以放開；說完再按一下 fn 結束。")
+                    TriggerHint(caps: ["fn ×2"],
+                                text: String(localized: "Double-tap to lock the microphone on so you can let go. Press fn once more when you have finished."))
                 }
-                TriggerHint(caps: ["esc"], text: "取消這一次，不貼上也不留紀錄。")
+                TriggerHint(caps: ["esc"],
+                            text: String(localized: "Cancel this one. Nothing is pasted, nothing is saved."))
             }
         }
         .card(padding: Theme.Space.xl)
@@ -215,12 +220,16 @@ private struct StatsRail: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.m) {
-            StatCard(title: "累積字數", value: number(stats?.totalWords), unit: "字")
-            StatCard(title: "本週字數", value: number(stats?.weekWords), unit: "字")
-            StatCard(title: "平均語速", value: stats.map { String(Int($0.averageWPM.rounded())) } ?? "--",
+            StatCard(title: String(localized: "Total words"), value: number(stats?.totalWords),
+                     unit: String(localized: "words"))
+            StatCard(title: String(localized: "This week"), value: number(stats?.weekWords),
+                     unit: String(localized: "words"))
+            StatCard(title: String(localized: "Average pace"),
+                     value: stats.map { String(Int($0.averageWPM.rounded())) } ?? "--",
                      unit: "WPM")
-            StatCard(title: "省下時間", value: stats.map { Self.saved($0.savedSeconds) } ?? "--",
-                     unit: "以每分鐘 40 字打字計")
+            StatCard(title: String(localized: "Time saved"),
+                     value: stats.map { Self.saved($0.savedSeconds) } ?? "--",
+                     unit: String(localized: "vs. typing at 40 wpm"))
         }
     }
 
@@ -229,8 +238,10 @@ private struct StatsRail: View {
     /// Negative means speaking was slower than typing would have been; show zero, not "-3 分鐘".
     static func saved(_ seconds: Double) -> String {
         let minutes = max(0, Int(seconds / 60))
-        if minutes >= 60 { return "\(minutes / 60) 小時 \(minutes % 60) 分" }
-        return "\(minutes) 分鐘"
+        if minutes >= 60 {
+            return String(format: String(localized: "%d hr %d min"), minutes / 60, minutes % 60)
+        }
+        return String(format: String(localized: "%d min"), minutes)
     }
 }
 
@@ -260,19 +271,23 @@ private struct StatusLine: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            StatusPill(title: "麥克風", ok: state.micGranted,
-                       detail: state.micGranted ? "已授權" : "未授權") {
+            StatusPill(title: String(localized: "Microphone"), ok: state.micGranted,
+                       detail: state.micGranted
+                           ? String(localized: "Granted") : String(localized: "Not granted")) {
                 state.settingsTab = .permissions
                 state.showSettings = true
             }
-            StatusPill(title: "輔助使用", ok: state.axTrusted,
-                       detail: state.axTrusted ? "已授權" : "未授權") {
+            StatusPill(title: String(localized: "Accessibility"), ok: state.axTrusted,
+                       detail: state.axTrusted
+                           ? String(localized: "Granted") : String(localized: "Not granted")) {
                 state.settingsTab = .permissions
                 state.showSettings = true
             }
-            StatusPill(title: "語音模型", ok: state.modelReady,
+            StatusPill(title: String(localized: "Speech model"), ok: state.modelReady,
                        detail: state.modelStatus.isEmpty
-                           ? (state.modelReady ? "就緒" : "尚未準備") : state.modelStatus) {
+                           ? (state.modelReady
+                              ? String(localized: "Ready") : String(localized: "Not ready yet"))
+                           : state.modelStatus) {
                 state.settingsTab = .ai
                 state.showSettings = true
             }
@@ -306,7 +321,7 @@ private struct StatusPill: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .help(ok ? detail : "點一下前往修正")
+        .help(ok ? detail : String(localized: "Click to fix this"))
     }
 }
 
@@ -331,13 +346,13 @@ private struct HistoryPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
             HStack(alignment: .firstTextBaseline) {
-                Text("紀錄").font(Theme.title).foregroundStyle(Theme.textPrimary)
+                Text("History").font(Theme.title).foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Picker("保留", selection: $retention) {
-                    Text("7 天").tag(7)
-                    Text("30 天").tag(30)
-                    Text("90 天").tag(90)
-                    Text("永久").tag(0)
+                Picker("Keep", selection: $retention) {
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                    Text("Forever").tag(0)
                 }
                 .labelsHidden()
                 .frame(width: 110)
@@ -346,7 +361,7 @@ private struct HistoryPane: View {
                     reload()
                 }
                 Menu {
-                    Button("清空全部", role: .destructive) { confirmingClear = true }
+                    Button("Clear All", role: .destructive) { confirmingClear = true }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -355,29 +370,32 @@ private struct HistoryPane: View {
                 .frame(width: 24)
             }
 
-            Text("所有錄音與文字都留在這台 Mac，不會上傳。只有要整理的逐字稿會送到你自己設定的 AI 供應商。")
+            Text("Every recording and every word stays on this Mac. The only thing that leaves is the transcript being cleaned up, and it goes to the AI provider you configured.")
                 .font(Theme.caption)
                 .foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: Theme.Space.s) {
-                Chip(title: "全部", selected: filter == nil) { filter = nil }
+                Chip(title: String(localized: "All"), selected: filter == nil) { filter = nil }
                 ForEach(Mode.allCases) { mode in
                     Chip(title: mode.displayName, symbol: mode.sfSymbol, selected: filter == mode) {
                         filter = mode
                     }
                 }
                 Spacer(minLength: Theme.Space.l)
-                SearchField(text: $query, prompt: "搜尋紀錄").frame(width: 200)
+                SearchField(text: $query, prompt: String(localized: "Search history"))
+                    .frame(width: 200)
             }
 
             if entries.isEmpty {
                 EmptyState(
                     symbol: query.isEmpty && filter == nil ? "waveform" : "magnifyingglass",
-                    title: query.isEmpty && filter == nil ? "還沒有任何紀錄" : "沒有符合的紀錄",
+                    title: query.isEmpty && filter == nil
+                        ? String(localized: "Nothing here yet")
+                        : String(localized: "No matching entries"),
                     detail: query.isEmpty && filter == nil
-                        ? "按住 fn 說一句話試試。每次聽寫、翻譯和問問題都會記在這裡，方便重新複製或重貼。"
-                        : "換個關鍵字，或把篩選切回「全部」。")
+                        ? String(localized: "Hold fn and say something. Every dictation, translation and question shows up here, ready to copy or paste again.")
+                        : String(localized: "Try a different search, or set the filter back to All."))
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Theme.Space.l, pinnedViews: .sectionHeaders) {
@@ -408,13 +426,13 @@ private struct HistoryPane: View {
         }
         .padding(Theme.Space.xxl)
         .task(id: "\(filter?.rawValue ?? "-")|\(query)|\(Store.shared.revision)") { reload() }
-        .confirmationDialog("要刪除全部紀錄嗎？", isPresented: $confirmingClear) {
-            Button("刪除全部", role: .destructive) {
+        .confirmationDialog("Delete all history?", isPresented: $confirmingClear) {
+            Button("Delete All", role: .destructive) {
                 Store.shared.clearHistory()
                 reload()
             }
         } message: {
-            Text("這會清掉所有聽寫、翻譯和問問題的紀錄，無法復原。字典不受影響。")
+            Text("This permanently removes every dictation, translation and question. Your dictionary is not affected.")
         }
     }
 
@@ -438,8 +456,8 @@ private struct HistoryPane: View {
 
     static func dayLabel(_ day: Date) -> String {
         let cal = Calendar.current
-        if cal.isDateInToday(day) { return "今天" }
-        if cal.isDateInYesterday(day) { return "昨天" }
+        if cal.isDateInToday(day) { return String(localized: "Today") }
+        if cal.isDateInYesterday(day) { return String(localized: "Yesterday") }
         return day.formatted(.dateTime.year().month().day().weekday(.wide))
     }
 }
@@ -498,8 +516,12 @@ private struct EntryRow: View {
             if expanded {
                 Rectangle().fill(Theme.stroke).frame(height: 1)
                 HStack(alignment: .top, spacing: Theme.Space.l) {
-                    detailColumn("原始逐字稿", entry.raw.isEmpty ? "（沒有留下逐字稿）" : entry.raw)
-                    detailColumn("整理後", entry.cleaned.isEmpty ? "（整理失敗）" : entry.cleaned)
+                    detailColumn(String(localized: "Raw transcript"),
+                                 entry.raw.isEmpty
+                                     ? String(localized: "(no transcript kept)") : entry.raw)
+                    detailColumn(String(localized: "Cleaned up"),
+                                 entry.cleaned.isEmpty
+                                     ? String(localized: "(cleanup failed)") : entry.cleaned)
                 }
                 HStack(spacing: Theme.Space.s) {
                     Label(entry.mode.displayName, systemImage: entry.mode.sfSymbol)
@@ -516,14 +538,18 @@ private struct EntryRow: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
-                    if hasAudio { Button(playing ? "停止" : "播放錄音", action: togglePlayback) }
-                    Button("複製") {
+                    if hasAudio {
+                        Button(playing ? String(localized: "Stop")
+                                       : String(localized: "Play Recording"),
+                               action: togglePlayback)
+                    }
+                    Button("Copy") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(
                             entry.cleaned.isEmpty ? entry.raw : entry.cleaned, forType: .string)
                     }
-                    Button("重新貼上", action: repaste)
-                    Button("刪除", role: .destructive, action: remove)
+                    Button("Paste Again", action: repaste)
+                    Button("Delete", role: .destructive, action: remove)
                 }
                 .buttonStyle(.borderless)
                 .font(Theme.body)
@@ -570,43 +596,48 @@ private struct DictionaryPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
             HStack(alignment: .firstTextBaseline) {
-                Text("字典").font(Theme.title).foregroundStyle(Theme.textPrimary)
+                Text("Dictionary").font(Theme.title).foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Button {
                     editing = nil
                     showingEditor = true
                 } label: {
-                    Label("新增詞彙", systemImage: "plus")
+                    Label("Add Term", systemImage: "plus")
                 }
             }
 
-            Text("這些詞會在送進 AI 之前先做一次字面取代，也會附在提示裡，讓模型認得辨識不出來的專有名詞。要做整段改寫（含正規表示式）請用「設定 → 取代規則」，那是在 AI 整理完之後才跑的。")
+            Text("These terms are swapped in literally before the text reaches the AI, and they ride along in the prompt so the model recognizes names it would otherwise mangle. To rewrite whole passages, regular expressions included, use Settings → Replacements, which run after the AI has finished.")
                 .font(Theme.caption)
                 .foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Toggle("整理完自動把新出現的專有名詞加進字典", isOn: $autoAdd)
+            Toggle("Automatically add new names found during cleanup", isOn: $autoAdd)
                 .font(Theme.body)
 
             HStack(spacing: Theme.Space.s) {
-                Chip(title: "全部", selected: source == nil) { source = nil }
-                Chip(title: "自動加入", symbol: TermSource.auto.sfSymbol, selected: source == .auto) {
+                Chip(title: String(localized: "All"), selected: source == nil) { source = nil }
+                Chip(title: String(localized: "Added automatically"),
+                     symbol: TermSource.auto.sfSymbol, selected: source == .auto) {
                     source = .auto
                 }
-                Chip(title: "手動加入", symbol: TermSource.manual.sfSymbol, selected: source == .manual) {
+                Chip(title: String(localized: "Added by hand"),
+                     symbol: TermSource.manual.sfSymbol, selected: source == .manual) {
                     source = .manual
                 }
                 Spacer(minLength: Theme.Space.l)
-                SearchField(text: $query, prompt: "搜尋詞彙").frame(width: 200)
+                SearchField(text: $query, prompt: String(localized: "Search terms"))
+                    .frame(width: 200)
             }
 
             if terms.isEmpty {
                 EmptyState(
                     symbol: query.isEmpty && source == nil ? "character.book.closed" : "magnifyingglass",
-                    title: query.isEmpty && source == nil ? "字典還是空的" : "沒有符合的詞彙",
+                    title: query.isEmpty && source == nil
+                        ? String(localized: "Your dictionary is empty")
+                        : String(localized: "No matching terms"),
                     detail: query.isEmpty && source == nil
-                        ? "把名字、產品名或常被聽錯的專有名詞加進來。整理過程中發現的修正也會自動加入。"
-                        : "換個關鍵字，或把篩選切回「全部」。")
+                        ? String(localized: "Add names, products and anything else that keeps getting misheard. Corrections spotted during cleanup land here on their own.")
+                        : String(localized: "Try a different search, or set the filter back to All."))
             } else {
                 ScrollView {
                     FlowLayout {
@@ -666,10 +697,13 @@ private struct TermChip: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help(term.variants.isEmpty ? term.text : "常被聽成：" + term.variants.joined(separator: "、"))
+        .help(term.variants.isEmpty
+              ? term.text
+              : String(format: String(localized: "Often heard as: %@"),
+                       term.variants.joined(separator: ", ")))
         .contextMenu {
-            Button("編輯…", action: edit)
-            Button("刪除", role: .destructive, action: remove)
+            Button("Edit…", action: edit)
+            Button("Delete", role: .destructive, action: remove)
         }
     }
 }
@@ -684,28 +718,30 @@ private struct TermEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
-            Text(term == nil ? "新增詞彙" : "編輯詞彙")
+            Text(term == nil ? String(localized: "Add Term") : String(localized: "Edit Term"))
                 .font(Theme.heading)
                 .foregroundStyle(Theme.textPrimary)
 
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                Text("正確寫法").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                TextField("例如：Cloudflare", text: $text)
+                Text("Correct spelling").font(Theme.caption).foregroundStyle(Theme.textSecondary)
+                TextField("For example, Cloudflare", text: $text)
             }
 
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                Text("常被聽成（選填）").font(Theme.caption).foregroundStyle(Theme.textSecondary)
-                TextField("用逗號分隔，例如：cloud fair, 克勞福", text: $variants, axis: .vertical)
+                Text("Often heard as (optional)").font(Theme.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                TextField("Separate with commas, for example cloud fair, cloud flair",
+                          text: $variants, axis: .vertical)
                     .lineLimit(2...4)
-                Text("辨識結果出現這些字時，會先換成上面的正確寫法。")
+                Text("Whenever one of these turns up in a transcript, it is replaced with the spelling above.")
                     .font(Theme.caption)
                     .foregroundStyle(Theme.textTertiary)
             }
 
             HStack {
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }
-                Button("儲存") {
+                Button("Cancel", role: .cancel) { dismiss() }
+                Button("Save") {
                     save(text.trimmingCharacters(in: .whitespacesAndNewlines), Self.split(variants))
                     dismiss()
                 }

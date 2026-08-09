@@ -17,11 +17,11 @@ enum Provider: String, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .deepseek: "DeepSeek"
-        case .claudeCode: "Claude Code（本機 CLI）"
+        case .claudeCode: String(localized: "Claude Code (local CLI)")
         case .anthropic: "Anthropic"
         case .openai: "OpenAI"
         case .gemini: "Gemini"
-        case .local: "本機"
+        case .local: String(localized: "Local")
         }
     }
 
@@ -47,11 +47,11 @@ enum Provider: String, CaseIterable, Identifiable, Sendable {
     var detail: String? {
         switch self {
         case .claudeCode:
-            "用你已登入的 Claude Code 訂閱，不必填金鑰。代價是慢：每次要冷啟動 CLI，實測約 5 秒，直接用 API 金鑰約 1 秒。"
+            String(localized: "Uses the Claude Code subscription you are already signed in to, so there is no key to enter. The cost is speed: every request cold-starts the CLI, measured at about 5 seconds against about 1 second for a direct API key.")
         case .deepseek:
-            "實測約 1 秒、中文原生、費用極低。要一組 DeepSeek API 金鑰。"
+            String(localized: "About 1 second in testing, native-quality Chinese, and very cheap. Needs a DeepSeek API key.")
         case .local:
-            "OpenAI 相容的本機伺服器（Ollama、LM Studio）。逐字稿不離開這台電腦。"
+            String(localized: "An OpenAI-compatible server on this Mac (Ollama, LM Studio). Transcripts never leave the machine.")
         default: nil
         }
     }
@@ -64,15 +64,15 @@ enum RecognitionEngine: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .speechTranscriber: "SpeechTranscriber（快，不漏字）"
-        case .dictationTranscriber: "DictationTranscriber（吃字典提示，英文更準）"
+        case .speechTranscriber: String(localized: "SpeechTranscriber (fast, drops nothing)")
+        case .dictationTranscriber: String(localized: "DictationTranscriber (takes dictionary hints, better at English)")
         }
     }
 
     var detail: String {
         switch self {
-        case .speechTranscriber: "反應快、不會漏字，但英文詞常拼錯，靠字典和 LLM 修。"
-        case .dictationTranscriber: "接受詞彙提示，英文專有名詞更準，但實測會整個吃掉一個字。"
+        case .speechTranscriber: String(localized: "Quick to respond and never drops a word, but it often misspells English terms, which the dictionary and the LLM then fix.")
+        case .dictationTranscriber: String(localized: "Takes vocabulary hints, so English proper nouns come out more accurately, but in testing it swallows a whole word now and then.")
         }
     }
 }
@@ -98,12 +98,12 @@ enum Companion: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .none: "只按 fn"
-        case .leftShift: "fn + 左 Shift"
-        case .space: "fn + 空白鍵"
-        case .leftControl: "fn + 左 Control"
-        case .leftOption: "fn + 左 Option"
-        case .leftCommand: "fn + 左 Command"
+        case .none: String(localized: "fn alone")
+        case .leftShift: String(localized: "fn + Left Shift")
+        case .space: String(localized: "fn + Space")
+        case .leftControl: String(localized: "fn + Left Control")
+        case .leftOption: String(localized: "fn + Left Option")
+        case .leftCommand: String(localized: "fn + Left Command")
         }
     }
 }
@@ -113,14 +113,14 @@ enum Companion: String, CaseIterable, Identifiable, Sendable {
 /// zh-Hans both come back as "Chinese" and two of the picker's options would do nothing.
 /// Short list on purpose; the field takes any BCP-47 code and falls back to Locale for those.
 let translateLanguages: [(code: String, name: String, english: String)] = [
-    ("en", "英文", "English"),
-    ("ja", "日文", "Japanese"),
-    ("ko", "韓文", "Korean"),
-    ("zh-Hant", "繁體中文", "Traditional Chinese"),
-    ("zh-Hans", "簡體中文", "Simplified Chinese"),
-    ("es", "西班牙文", "Spanish"),
-    ("fr", "法文", "French"),
-    ("de", "德文", "German"),
+    ("en", String(localized: "English"), "English"),
+    ("ja", String(localized: "Japanese"), "Japanese"),
+    ("ko", String(localized: "Korean"), "Korean"),
+    ("zh-Hant", String(localized: "Traditional Chinese"), "Traditional Chinese"),
+    ("zh-Hans", String(localized: "Simplified Chinese"), "Simplified Chinese"),
+    ("es", String(localized: "Spanish"), "Spanish"),
+    ("fr", String(localized: "French"), "French"),
+    ("de", String(localized: "German"), "German"),
 ]
 
 // MARK: - Prefs
