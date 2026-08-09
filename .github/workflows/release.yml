@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: v
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project OpenTalkType.xcodeproj \
+            -scheme OpenTalkType \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath build \
+            MARKETING_VERSION="${{ steps.v.outputs.version }}" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # The same suite CI runs, against the Release build that is about to ship. A green Debug
+      # build says nothing about the binary people download.
+      - name: Self-test the release build
+        run: build/Build/Products/Release/OpenTalkType.app/Contents/MacOS/OpenTalkType --selftest
+
+      - name: Package
+        run: |
+          APP=build/Build/Products/Release/OpenTalkType.app
+          # Ad-hoc signature. It is not a Developer ID and does not survive Gatekeeper on another
+          # Mac, but it does make the bundle internally consistent so the app runs once the
+          # quarantine flag is off.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --verbose "$APP"
+
+          mkdir -p dist/dmg
+          cp -R "$APP" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "OpenTalkType" -srcfolder dist/dmg -ov -format ULFO \
+            "dist/OpenTalkType-${{ steps.v.outputs.version }}.dmg"
+
+          cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          name: OpenTalkType ${{ steps.v.outputs.version }}
+          files: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          body: |
+            ## Install
+
+            Requires macOS 26 or later on Apple silicon.
+
+            1. Open the .dmg and drag OpenTalkType to Applications.
+            2. **This build is not notarised**, so macOS will refuse to open it on the first try.
+               Either right-click the app and choose Open, or run:
+
+               ```
+               xattr -d com.apple.quarantine /Applications/OpenTalkType.app
+               ```
+
+            3. Grant Accessibility and Microphone when asked. Accessibility is what the fn key and
+               pasting depend on; without it nothing happens when you hold fn.
+            4. System Settings, Keyboard: set "Press globe key to" to "Do Nothing", or holding fn
+               opens the emoji picker on top of your dictation.
+
+            Why unsigned: notarising needs a paid Apple Developer account, and this project does
+            not have one yet. The checksums below are the honest substitute — verify with
+            `shasum -a 256` against SHA256SUMS.txt. If you would rather not trust a binary from a
+            stranger, the whole app builds from source in two commands, which is in the README.
+
+            ## Verified before publishing
+
+            Built in Release configuration on a macOS 26 runner, and the self-test suite was run
+            against the exact binary in this .dmg, not a debug build.
+          generate_release_notes: true
