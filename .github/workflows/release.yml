@@ -1,154 +1,472 @@
 name: Release
 
+# Push a tag, ship a build people can actually open.
+#
+# Two artefacts leave this workflow and they are not interchangeable:
+#   .dmg  what a human downloads from the releases page
+#   .zip  what Sparkle downloads to install an update, because that is the only
+#         format its installer accepts
+# Both come from the same signed, notarised and stapled .app.
+#
+# Every step verifies itself. Anything that "looks like it worked but didn't" --
+# an unsigned enclosure, a feed that silently lost an item, a notarisation that
+# returned 0 while being rejected -- must exit non-zero on the spot.
+
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build, e.g. v0.1.0'
+        description: 'Tag to ship, e.g. v0.1.0 or v0.0.1-test'
         required: true
 
 permissions:
   contents: write
+
+concurrency:
+  # Two releases at once clobber each other's Release assets and race on docs/appcast.xml.
+  # Queue instead of cancelling: a half-published release is worse than a slow one.
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: macos-26
 
     steps:
+      - name: Derive version and channel from the tag
+        id: meta
+        env:
+          # Through env, not interpolated into the shell: workflow_dispatch input is user text.
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_INPUT:-$GITHUB_REF_NAME}"
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::tag must be v<version>, got '$TAG'"; exit 1 ;;
+          esac
+          # A '-' in the tag (v0.0.1-test, v0.2.0-beta.1) means prerelease. Computed once,
+          # here, and reused by both the GitHub Release flag and the Sparkle channel.
+          case "$TAG" in
+            *-*) PRERELEASE=true ;;
+            *)   PRERELEASE=false ;;
+          esac
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+          echo "releasing $TAG (prerelease=$PRERELEASE)"
+
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ steps.meta.outputs.tag }}
           fetch-depth: 0
 
-      - name: Version
-        id: v
+      - name: Check for signing material
+        id: secrets
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ -n "$CERT" ] && [ -n "$CERT_PASSWORD" ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD — this build is adhoc-signed. Gatekeeper blocks it on every Mac except the one that built it."
+          fi
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "notarize=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "notarize=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID — skipping notarization. An un-notarized app is blocked on first open even with a Developer ID signature."
+          fi
+
+      - name: Check for the Sparkle signing key
+        id: sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "appcast=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "appcast=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No SPARKLE_PRIVATE_KEY — skipping the appcast. This release will NOT be offered to existing installs. An unsigned or partial feed is worse than no feed, so nothing is published."
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.secrets.outputs.sign == 'true'
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Resolve the signing identity
+        id: identity
+        if: steps.secrets.outputs.sign == 'true'
+        run: |
+          set -euo pipefail
+          # The import action does not check what it imported. Ask the keychain and stop if
+          # it is not a Developer ID — an Apple Development or Apple Distribution certificate
+          # produces an app that looks signed and is still refused on every other Mac.
+          # `|| true`: grep exits 1 on no match, and pipefail would kill the shell before the
+          # human-readable error below could be printed.
+          id="$(security find-identity -v -p codesigning \
+                | grep 'Developer ID Application' \
+                | head -1 | awk '{print $2}' || true)"
+          if [ -z "$id" ]; then
+            echo "::error::A certificate was imported but no Developer ID Application identity is in the keychain. APPLE_CERTIFICATE probably holds an Apple Development or Apple Distribution certificate."
+            security find-identity -v -p codesigning || true
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "signing with $id"
 
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Build
+      - name: Build and sign
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          BUILD: ${{ github.run_number }}
+          SIGN: ${{ steps.secrets.outputs.sign }}
+          IDENTITY: ${{ steps.identity.outputs.id }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          set -euo pipefail
           xcodegen generate
+          # Signing is xcodebuild's job, not a post-hoc `codesign --deep`. --deep is
+          # deprecated, and it signs Sparkle's nested XPC services and Autoupdate helper in
+          # the wrong order, which notarization rejects. Xcode signs inside-out correctly.
+          if [ "$SIGN" = "true" ]; then
+            set -- \
+              CODE_SIGN_IDENTITY="$IDENTITY" \
+              CODE_SIGN_STYLE=Manual \
+              DEVELOPMENT_TEAM="$TEAM_ID" \
+              ENABLE_HARDENED_RUNTIME=YES \
+              OTHER_CODE_SIGN_FLAGS=--timestamp \
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+          else
+            set -- \
+              CODE_SIGN_IDENTITY="-" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=YES \
+              ENABLE_HARDENED_RUNTIME=NO
+          fi
           xcodebuild \
             -project OpenTalkType.xcodeproj \
             -scheme OpenTalkType \
             -configuration Release \
             -destination 'platform=macOS' \
             -derivedDataPath build \
-            MARKETING_VERSION="${{ steps.v.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD" \
+            "$@" \
             build
 
-      # The same suite CI runs, against the Release binary that is about to ship. A green Debug
-      # build says nothing about what people download.
+          APP=build/Build/Products/Release/OpenTalkType.app
+          test -x "$APP/Contents/MacOS/OpenTalkType" || { echo "::error::no executable in the bundle"; exit 1; }
+          # Sparkle compares exactly this string. An app that lies about its own version
+          # either never updates or offers itself an update forever.
+          got="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+          [ "$got" = "$VERSION" ] || { echo "::error::Info.plist says $got, the tag says $VERSION"; exit 1; }
+          codesign --verify --strict --verbose=2 "$APP"
+
+          if [ "$SIGN" = "true" ]; then
+            # get-task-allow lets a debugger attach, and notarization rejects any binary
+            # carrying it. Xcode injects it as a base entitlement, which is why
+            # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO is set above -- this asserts that it
+            # worked. Catching it here costs seconds; catching it at notarytool costs a
+            # whole release cycle for an error message that names no file.
+            if codesign -d --entitlements - --xml "$APP" 2>/dev/null \
+                 | plutil -convert xml1 -o - - \
+                 | grep -q 'get-task-allow'; then
+              echo "::error::the signed app still carries com.apple.security.get-task-allow; notarization would reject it"
+              codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o - -
+              exit 1
+            fi
+            echo "entitlements clean: no get-task-allow"
+          fi
+
+      # The same suite CI runs, against the Release binary that is about to ship. A green
+      # Debug build says nothing about what people download.
       - name: Self-test the release build
         run: build/Build/Products/Release/OpenTalkType.app/Contents/MacOS/OpenTalkType --selftest
 
-      - name: Package
+      - name: Notarize and staple the app
+        if: steps.secrets.outputs.sign == 'true' && steps.secrets.outputs.notarize == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          set -euo pipefail
           APP=build/Build/Products/Release/OpenTalkType.app
-          # Ad-hoc signature: not a Developer ID, so Gatekeeper still quarantines a fresh
-          # download, but it makes the bundle internally consistent. Sparkle's own EdDSA
-          # signature below is what actually authenticates an update.
-          codesign --force --deep --sign - "$APP"
-          codesign --verify --verbose "$APP"
+          # The .app is stapled first and everything else is built from the stapled copy.
+          # A ticket cannot be stapled to a .zip, so this is the only order that gets one
+          # into the archive Sparkle installs from.
+          ditto -c -k --keepParent "$APP" notarize.zip
+          # On some Xcode versions --wait exits 0 even when the submission was rejected,
+          # so read the status rather than trusting the exit code.
+          xcrun notarytool submit notarize.zip \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --output-format json > notary.json
+          status="$(python3 -c 'import json;print(json.load(open("notary.json"))["status"])')"
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::notarization returned $status"
+            xcrun notarytool log "$(python3 -c 'import json;print(json.load(open("notary.json"))["id"])')" \
+              --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          # Final acceptance test on the app: Gatekeeper decides, we don't.
+          spctl --assess --type execute -vv "$APP"
 
+      - name: Package the zip and the dmg
+        id: package
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          APP=build/Build/Products/Release/OpenTalkType.app
           mkdir -p dist
-          # Sparkle updates from a zip; the dmg is for humans arriving from the releases page.
-          ditto -c -k --keepParent "$APP" "dist/OpenTalkType-${{ steps.v.outputs.version }}.zip"
 
+          # ditto, not zip: only ditto carries a bundle's symlinks and extended attributes
+          # -- including the stapled notarization ticket -- through intact. This is the
+          # archive Sparkle downloads.
+          ZIP="OpenTalkType-${VERSION}.zip"
+          ditto -c -k --keepParent "$APP" "dist/$ZIP"
+          test -s "dist/$ZIP" || { echo "::error::$ZIP is empty"; exit 1; }
+
+          # The dmg is for humans arriving at the releases page.
+          DMG="OpenTalkType-${VERSION}.dmg"
           mkdir -p stage
           cp -R "$APP" stage/
           ln -s /Applications stage/Applications
-          hdiutil create -volname "OpenTalkType" -srcfolder stage -ov -format ULFO \
-            "dist/OpenTalkType-${{ steps.v.outputs.version }}.dmg"
+          hdiutil create -volname "OpenTalkType" -srcfolder stage -ov -format ULFO "dist/$DMG"
+          test -s "dist/$DMG" || { echo "::error::$DMG is empty"; exit 1; }
 
-          cd dist && shasum -a 256 * > SHA256SUMS.txt && cat SHA256SUMS.txt
+          {
+            echo "zip=$ZIP"
+            echo "dmg=$DMG"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Sparkle tools
-        run: |
-          URL=$(gh api repos/sparkle-project/Sparkle/releases/latest \
-                --jq '.assets[]|select(.name|endswith(".tar.xz"))|.browser_download_url' | head -1)
-          mkdir -p sparkle && curl -sL "$URL" | tar xJ -C sparkle
-          sparkle/bin/sign_update --version
+      - name: Notarize and staple the dmg
+        if: steps.secrets.outputs.sign == 'true' && steps.secrets.outputs.notarize == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-
-      # The appcast is what every installed copy polls, and its EdDSA signature is the only thing
-      # standing between a user and someone else's build. The private key never leaves Actions.
-      - name: Sign and build the appcast
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          DMG: ${{ steps.package.outputs.dmg }}
         run: |
-          KEY=$(mktemp)
-          printf '%s' "${{ secrets.SPARKLE_PRIVATE_KEY }}" > "$KEY"
-          mkdir -p docs
-          sparkle/bin/generate_appcast \
-            --ed-key-file "$KEY" \
-            --download-url-prefix "https://github.com/SammyLin/OpenTalkType/releases/download/${{ steps.v.outputs.tag }}/" \
-            --link "https://github.com/SammyLin/OpenTalkType" \
-            --maximum-versions 5 \
-            -o docs/appcast.xml \
-            dist
-          rm -Pf "$KEY"
-          cat docs/appcast.xml
+          set -euo pipefail
+          # A second submission on purpose. The app inside is already stapled, but the disk
+          # image is its own quarantined download and Gatekeeper assesses it first. Without
+          # its own ticket the user still sees a warning before ever reaching the app.
+          xcrun notarytool submit "dist/$DMG" \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --output-format json > notary-dmg.json
+          status="$(python3 -c 'import json;print(json.load(open("notary-dmg.json"))["status"])')"
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::dmg notarization returned $status"
+            xcrun notarytool log "$(python3 -c 'import json;print(json.load(open("notary-dmg.json"))["id"])')" \
+              --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
+          xcrun stapler staple "dist/$DMG"
+          xcrun stapler validate "dist/$DMG"
+          # -t open with primary-signature: without the context flag spctl judges a dmg by
+          # its quarantine attribute, which a freshly built local file does not have, and
+          # reports success no matter what.
+          spctl --assess --type open --context context:primary-signature -vv "dist/$DMG"
 
-      - name: Publish the appcast
+      - name: Checksums
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/appcast.xml
-          git diff --cached --quiet || git commit -m "chore: appcast for ${{ steps.v.outputs.tag }}
+          set -euo pipefail
+          cd dist && shasum -a 256 ./* > SHA256SUMS.txt && cat SHA256SUMS.txt
 
-          Published by the release workflow. Every installed copy polls this file, so it has to
-          land before the release is announced."
-          git push origin HEAD:main
+      - name: Carry the published appcast forward
+        id: feed
+        if: steps.sparkle.outputs.appcast == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p appcast-work
+          # The live feed is docs/appcast.xml on main, which GitHub Pages serves at the
+          # SUFeedURL baked into every installed copy. This build is checked out at the
+          # tag, which may predate the last release's appcast commit, so take the feed
+          # from origin/main rather than from the working tree.
+          git fetch origin main
+          if git cat-file -e origin/main:docs/appcast.xml 2>/dev/null; then
+            git show origin/main:docs/appcast.xml > appcast-work/appcast.xml
+          else
+            echo "no docs/appcast.xml on main yet — first release, starting a fresh feed"
+          fi
+          before=0
+          if [ -f appcast-work/appcast.xml ]; then
+            before="$(grep -c '<item>' appcast-work/appcast.xml || true)"
+          fi
+          echo "items_before=$before" >> "$GITHUB_OUTPUT"
+          echo "carried $before existing item(s) forward"
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
+      - name: Generate and verify the appcast
+        if: steps.sparkle.outputs.appcast == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          REPO: ${{ github.repository }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          BEFORE: ${{ steps.feed.outputs.items_before }}
+        run: |
+          set -euo pipefail
+          # generate_appcast comes from the Sparkle the app was just built against, not from
+          # a fresh download: the tool that signs the feed has to match the framework inside
+          # the bundle.
+          gen="$(find build/SourcePackages/artifacts -type f -name generate_appcast -perm -u+x | head -1)"
+          if [ -z "$gen" ]; then
+            echo "::error::generate_appcast is not under build/SourcePackages/artifacts. Sparkle is not resolved as a package dependency, so nothing here can sign the feed."
+            exit 1
+          fi
+          # Only the zip goes in: Sparkle's installer cannot open a dmg, and an item
+          # pointing at one is an update every client refuses.
+          cp "dist/$ZIP" appcast-work/
+          # Prerelease tags go to the beta channel; a plain tag carries no channel, which is
+          # what every install subscribes to. So v0.0.1-test can be rehearsed end to end
+          # without offering itself to anybody on the stable feed.
+          if [ "$PRERELEASE" = "true" ]; then set -- --channel beta; else set --; fi
+          # --maximum-versions 0 keeps every item. The default of 5 quietly prunes older
+          # entries, which is the silent drop the count assertion below exists to catch.
+          # --ed-key-file - reads the key from stdin, never argv: argv is readable by every
+          # process on the runner. The key never touches the disk.
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | "$gen" \
+            --ed-key-file - \
+            --maximum-versions 0 \
+            --download-url-prefix "https://github.com/$REPO/releases/download/$TAG/" \
+            "$@" \
+            appcast-work
+
+          feed=appcast-work/appcast.xml
+          test -s "$feed" || { echo "::error::generate_appcast wrote no appcast.xml"; exit 1; }
+          # This release's enclosure must be in the feed AND carry an EdDSA signature.
+          # generate_appcast omits the signature silently when SUPublicEDKey in Info.plist
+          # does not match the signing key, and an unsigned item is an update every client
+          # refuses — publishing it is a dead feed that looks alive.
+          enclosure="$(grep -F "$ZIP" "$feed" || true)"
+          case "$enclosure" in
+            *sparkle:edSignature=*) echo "signed enclosure present for $ZIP" ;;
+            "")
+              echo "::error::$ZIP does not appear in the generated appcast at all. Refusing to publish."
+              exit 1 ;;
+            *)
+              echo "::error::the enclosure for $ZIP has no sparkle:edSignature. Either SUPublicEDKey in Info.plist does not match SPARKLE_PRIVATE_KEY, or the key is malformed. Refusing to publish an unsigned item."
+              echo "$enclosure"
+              exit 1 ;;
+          esac
+          after="$(grep -c '<item>' "$feed" || true)"
+          if [ "$after" -lt "$BEFORE" ]; then
+            echo "::error::the feed shrank: $BEFORE item(s) in, $after out. A published update was dropped, which takes the upgrade path away from older installs. Refusing to publish."
+            exit 1
+          fi
+          echo "appcast: $BEFORE item(s) in, $after out"
+          cat "$feed"
+
+      - name: Compose release notes
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          SIGNED: ${{ steps.secrets.outputs.sign }}
+          NOTARIZED: ${{ steps.secrets.outputs.notarize }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          base="https://github.com/$REPO/blob/$TAG"
+          {
+            echo "### Install"
+            echo
+            echo "Requires macOS 26 or later on Apple silicon."
+            echo
+            echo "1. Open the .dmg and drag OpenTalkType into Applications."
+            echo "2. Run it from /Applications, not from the mounted disk image — the image is"
+            echo "   read-only, so an app launched from there cannot install its own updates."
+            echo "3. Grant Accessibility and Microphone when asked. Accessibility is what the fn"
+            echo "   key and pasting depend on; without it nothing happens when you hold fn."
+            echo "4. System Settings › Keyboard: set \"Press globe key to\" to \"Do Nothing\", or"
+            echo "   holding fn opens the emoji picker on top of your dictation."
+            echo
+            echo "After the first install, updates arrive in the app and install themselves."
+            echo
+            echo "### README"
+            echo
+            echo "- [English]($base/README.md)"
+            echo "- [正體中文]($base/README.zh-TW.md)"
+            echo "- [日本語]($base/README.ja.md)"
+            echo "- [한국어]($base/README.ko.md)"
+            echo
+            if [ "$SIGNED" != "true" ]; then
+              echo "### Warning: this build is not signed"
+              echo
+              echo "Adhoc signature, no Developer ID, no notarization. Gatekeeper blocks it on"
+              echo "every Mac except the one that built it. To allow it anyway, at your own risk:"
+              echo '`xattr -dr com.apple.quarantine /Applications/OpenTalkType.app`.'
+            elif [ "$NOTARIZED" != "true" ]; then
+              echo "### Warning: signed with a Developer ID, but not notarized"
+              echo
+              echo "macOS still blocks the first open, and since macOS 15 right-click → Open no"
+              echo "longer bypasses it. Open System Settings › Privacy & Security, scroll to the"
+              echo "message about OpenTalkType, and click \"Open Anyway\"."
+            fi
+            echo
+            echo "### Verified before publishing"
+            echo
+            echo "Built in Release configuration on a macOS 26 runner, and the self-test suite"
+            echo "ran against the exact binary inside this .dmg, not a debug build."
+            if [ "$NOTARIZED" = "true" ]; then
+              echo "Both the .app and the .dmg were notarized by Apple and stapled, and"
+              echo "\`spctl --assess\` accepted each one."
+            fi
+            echo
+            echo "Checksums are in SHA256SUMS.txt."
+          } > notes.md
+          cat notes.md
+
+      - uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ steps.v.outputs.tag }}
-          name: OpenTalkType ${{ steps.v.outputs.version }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: OpenTalkType ${{ steps.meta.outputs.version }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          body_path: notes.md
           files: |
             dist/*.dmg
             dist/*.zip
             dist/SHA256SUMS.txt
-          body: |
-            ## Install
+          fail_on_unmatched_files: true
 
-            Requires macOS 26 or later on Apple silicon.
+      # Last, on purpose: the appcast points at the Release download URLs, so the feed must
+      # not go live before the assets it advertises exist. Every installed copy polls this
+      # file — publishing it early means offering an update that 404s.
+      - name: Publish the appcast
+        if: steps.sparkle.outputs.appcast == 'true'
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p docs
+          cp appcast-work/appcast.xml docs/appcast.xml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml
+          git diff --cached --quiet && { echo "appcast unchanged"; exit 0; }
+          git commit -m "chore: appcast for $TAG
 
-            1. Open the .dmg and drag OpenTalkType to Applications.
-            2. **This build is not notarised**, so macOS refuses to open it the first time.
-               Right-click the app and choose Open, or run:
-
-               ```
-               xattr -d com.apple.quarantine /Applications/OpenTalkType.app
-               ```
-
-            3. Grant Accessibility and Microphone when asked. Accessibility is what the fn key and
-               pasting depend on; without it nothing happens when you hold fn.
-            4. System Settings, Keyboard: set "Press globe key to" to "Do Nothing", or holding fn
-               opens the emoji picker on top of your dictation.
-
-            After this first install, updates arrive in the app and install themselves.
-
-            Why unsigned: notarising needs a paid Apple Developer account, which this project does
-            not have yet. That affects the first install only. Updates are authenticated by
-            Sparkle against a signing key that never leaves this repository's secrets, so an
-            update cannot be substituted even by someone who controls the download server. Verify
-            this first download yourself with `shasum -a 256` against SHA256SUMS.txt, or build
-            from source in two commands, which the README covers.
-
-            ## Verified before publishing
-
-            Built in Release configuration on a macOS 26 runner, and the self-test suite was run
-            against the exact binary inside this .dmg, not a debug build.
-          generate_release_notes: true
+          Published by the release workflow. Every installed copy polls this file, so it
+          lands only after the release assets it points at exist."
+          git push origin HEAD:main

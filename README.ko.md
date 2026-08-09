@@ -165,7 +165,7 @@ Start Dictation, Stop Dictation, Cancel Dictation, Clean Up Text, Add Dictionary
 - **오디오**는 입력 장치 선택, 무음 시 자동 정지, 녹음 중 다른 소리 음소거를 지원합니다.
 - **백업**은 모드, 사전, 치환 규칙, 앱 규칙, 환경설정을 하나의 JSON으로 내보냅니다.
   API 키(키체인에 있습니다)도, 받아쓰기 기록도 들어 있지 않습니다.
-- 인터페이스는 6개 언어이며 그중 원어민이 쓴 것은 하나뿐입니다.
+- 인터페이스는 7개 언어(English, 正體中文, 日本語, 한국어, Deutsch, Español, Français)이며 그중 원어민이 쓴 것은 하나뿐입니다.
   [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
 
 ---
@@ -177,24 +177,27 @@ Start Dictation, Stop Dictation, Cancel Dictation, Clean Up Text, Add Dictionary
 
 1. [Releases](https://github.com/SammyLin/OpenTalkType/releases)에서 `.dmg`를 내려받아 앱을
    응용 프로그램 폴더로 끌어다 놓습니다.
-2. 이 빌드는 **공증(notarization)을 받지 않았습니다.** 그래서 처음 열 때 macOS가 실행을 거부합니다.
-   앱을 오른쪽 클릭해 "열기"를 선택하거나 다음을 실행하세요.
-   ```sh
-   xattr -d com.apple.quarantine /Applications/OpenTalkType.app
-   ```
+2. 마운트된 디스크 이미지가 아니라 응용 프로그램 폴더에서 실행하세요. 이미지는 읽기 전용이라
+   거기서 실행한 앱은 자기 자신의 업데이트를 설치할 수 없습니다.
 3. 요청이 뜨면 마이크와 손쉬운 사용 권한을 허용합니다.
 4. 시스템 설정 › 키보드 › "지구본 키를 눌러서"를 "아무 작업 안 함"으로 바꿉니다.
    그러지 않으면 `fn`을 누르는 순간 받아쓰기 위로 이모지 선택기가 열립니다.
 
-모든 릴리스에는 `SHA256SUMS.txt`가 함께 올라가므로 내려받은 파일을 검증할 수 있습니다.
+앱 자체는 무료입니다. 비용이 든다면 텍스트를 정리하는 언어 모델 쪽이고, 그 값은 직접 고른
+제공자에게 바로 지불합니다. 여기에는 계정도 없고, 우리 쪽 서버를 거치는 것도 없습니다.
+돈이 들지 않는 선택지도 둘 있습니다. Claude Code는 이미 가지고 있는 구독을 그대로 쓰고,
+로컬 Ollama나 LM Studio는 전기요금만 듭니다.
+
+각 릴리스는 Developer ID 인증서로 서명하고 Apple의 공증을 받아 티켓을 첨부하므로 첫 실행도
+평범하게 됩니다. `spctl`이 받아들이지 않는 것은 릴리스 절차가 배포를 거부합니다.
+모든 릴리스에는 `SHA256SUMS.txt`도 함께 올라가므로 내려받은 파일을 검증할 수 있습니다.
 
 ---
 
 ## 미리 밝혀 두는 거친 부분
 
-**공증되지 않았습니다.** 공증에는 유료 Apple Developer 계정이 필요한데 이 프로젝트에는 아직 없습니다.
-이유는 그것뿐이고, 영향을 받는 것은 첫 실행뿐입니다. 업데이트도 자동으로 설치하지 않습니다.
-첫 설치 이후의 업데이트는 검증됩니다. 각 릴리스는 EdDSA 키로 서명되며, 그 키는 제작자의 키체인과 이 저장소의 Actions secrets에만 존재합니다. 앱은 번들에 포함된 공개 키와 일치하지 않는 것을 거부하므로, 배포 서버를 장악한 사람이라도 업데이트를 바꿔치기할 수 없습니다. 자동 확인은 기본적으로 꺼져 있습니다.
+**업데이트는 스스로 설치됩니다. 그리고 그것은 의심해 볼 만한 일입니다.**
+첫 설치 이후의 업데이트는 이와 별개로 검증됩니다. 각 릴리스는 EdDSA 키로 서명되며, 그 키는 제작자의 키체인과 이 저장소의 Actions secrets에만 존재합니다. 앱은 번들에 포함된 공개 키와 일치하지 않는 것을 거부하므로, 배포 서버를 장악한 사람이라도 업데이트를 바꿔치기할 수 없습니다. 자동 확인은 기본적으로 꺼져 있습니다.
 손쉬운 사용 권한을 가진 앱이 검증되지 않은 빌드를 자동으로 설치하는 것은 편의가 아니라
 키로거 배포 경로이므로, 의도적으로 하지 않습니다.
 
@@ -222,12 +225,15 @@ Start Dictation, Stop Dictation, Cancel Dictation, Clean Up Text, Add Dictionary
 
 ## 소스에서 빌드
 
-서드파티 의존성 없음, 패키지 매니저 단계 없음, 해석할 것도 없음.
-
 ```sh
 xcodegen generate
 open OpenTalkType.xcodeproj
 ```
+
+서드파티 의존성은 [Sparkle](https://github.com/sparkle-project/Sparkle) 하나뿐이며, Xcode에서
+프로젝트를 열면 Swift Package Manager가 해결합니다. 이 예외에는 이유가 있습니다. 업데이터의
+가치는 zip을 내려받는 데 있지 않고, 손쉬운 사용 권한을 가진 프로그램을 무언가가 교체하기 전에
+서명을 검증하는 데 있기 때문입니다. 나머지는 모두 Apple의 프레임워크와 `libsqlite3`입니다.
 
 xcodegen이 없다면 먼저 `brew install xcodegen`. 빌드에는 Xcode 26이 필요합니다.
 서명은 ad-hoc이므로 Apple Developer 계정은 필요 없습니다.

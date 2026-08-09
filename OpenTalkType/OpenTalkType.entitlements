@@ -4,5 +4,11 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- Required by the hardened runtime, which notarization requires in turn. Without it
+	     AVCaptureDevice is denied before TCC is ever consulted, so the user never sees the
+	     microphone prompt and dictation records silence. The fn tap and pasting need no
+	     entitlement: those are gated by Accessibility (TCC), not by the hardened runtime. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

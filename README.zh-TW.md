@@ -152,7 +152,7 @@ Start Dictation、Stop Dictation、Cancel Dictation、Clean Up Text、Add Dictio
 - **音訊**可以指定輸入裝置、靜音自動停止、錄音時把其他聲音壓掉。
 - **備份**把模式、字典、取代規則、app 規則和偏好設定匯出成一個 JSON。裡面沒有 API key（key 在鑰匙圈），
   也沒有聽寫紀錄。
-- 介面有六種語言，其中只有一種是母語者寫的，詳見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 介面有七種語言 — English、正體中文、日本語、한국어、Deutsch、Español、Français — 其中只有一種是母語者寫的，詳見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ---
 
@@ -161,22 +161,25 @@ Start Dictation、Stop Dictation、Cancel Dictation、Clean Up Text、Add Dictio
 需要 **macOS 26 以上、Apple silicon**。舊系統沒有退路：辨識用的是 `SpeechAnalyzer`，macOS 26 之前不存在。
 
 1. 到 [Releases](https://github.com/SammyLin/OpenTalkType/releases) 下載 `.dmg`，把 app 拖進「應用程式」。
-2. 這份建置**沒有經過 Apple 公證**，所以第一次打開會被擋。在 app 上按右鍵選「打開」，或者執行：
-   ```sh
-   xattr -d com.apple.quarantine /Applications/OpenTalkType.app
-   ```
+2. 從「應用程式」啟動，不要直接從掛載的磁碟映像檔執行。映像檔是唯讀的，
+   從那裡啟動的 app 沒辦法安裝自己的更新。
 3. 依提示給「麥克風」和「輔助使用」權限。
 4. 系統設定 › 鍵盤 ›「按下地球儀鍵時」改成「不執行任何動作」，否則你一按住 `fn`，
    emoji 選擇器就蓋在聽寫上面跳出來。
 
-每個 release 都附 `SHA256SUMS.txt`，想核對下載檔案可以用。
+App 本身免費。要花錢的是幫你整理文字的語言模型，而且你是直接付給自己選的那家供應商——這裡沒有帳號，
+也沒有任何東西經過我們的伺服器。其中兩個選項完全不用錢：Claude Code 沿用你本來就有的訂閱，
+本機的 Ollama 或 LM Studio 只花電費。
+
+每一版都用 Developer ID 憑證簽章、經過 Apple 公證並釘上票據，所以第一次啟動就是一般的啟動；
+`spctl` 不接受的東西，發版流程會直接拒絕發佈。每個 release 也都附 `SHA256SUMS.txt`，
+想核對下載檔案可以用。
 
 ---
 
 ## 幾件不好聽但你該先知道的事
 
-**它沒有公證。** 公證需要付費的 Apple Developer 帳號，這個專案目前沒有，就這麼單純，而且只影響第一次啟動。
-之後的更新則是另一回事，而且經過驗證。每一版都用一把 EdDSA 金鑰簽章，那把鑰匙只存在兩個地方：
+**更新會自己裝起來，而這件事本身值得你懷疑一下。** 每一版都用一把 EdDSA 金鑰簽章，那把鑰匙只存在兩個地方：
 作者的鑰匙圈，以及這個 repo 的 Actions secrets。App 會拿編進 bundle 裡的公鑰比對，不符就拒絕安裝。
 就算有人拿到了下載伺服器的控制權，也無法把更新換成別的東西。
 
@@ -206,14 +209,17 @@ macOS 會把授權作廢卻不告訴你，系統設定裡那個勾勾看起來�
 
 ## 自己建置
 
-沒有第三方相依、沒有套件管理步驟、沒有東西要解析。
-
 ```sh
 xcodegen generate
 open OpenTalkType.xcodeproj
 ```
 
 沒裝 xcodegen 的話先 `brew install xcodegen`。建置需要 Xcode 26。簽章是 ad-hoc，所以不需要 Apple 開發者帳號。
+
+只有一個第三方相依：[Sparkle](https://github.com/sparkle-project/Sparkle)，Xcode 開啟專案時由
+Swift Package Manager 自行解析。它值得這個例外：更新器真正有價值的部分不是下載一個 zip，
+而是在任何東西取代一個握有「輔助使用」權限的程式之前，先驗證它的簽章。
+其餘全部是 Apple 自己的框架跟 `libsqlite3`。
 
 ### 自我測試
 
