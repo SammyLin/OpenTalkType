@@ -37,7 +37,7 @@ struct HUDGeometry {
     static let grow: CGFloat = 6       // menu-bar height plus a lip, like VoiceInk
     /// The shoulders. A plain rounded rect with a flat top reads as a black slab stuck under the
     /// menu bar; the top corners have to curve INWARD so the plate flares out of the notch the way
-    /// the hardware does. Radii follow sk-ruban/notchi, which solved this first.
+    /// the hardware does.
     static let closedTopRadius: CGFloat = 6
     static let closedBottomRadius: CGFloat = 14
     static let openTopRadius: CGFloat = 10
@@ -175,11 +175,16 @@ private final class NonKeyPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// The notch silhouette: top corners curving INWARD so the plate grows out of the notch's
-/// shoulders, bottom corners rounded normally. A flat-topped rounded rect is what made this look
-/// like a black bar taped under the menu bar.
+/// The notch silhouette: a rounded plate whose TOP corners are concave, so it appears to grow out
+/// of the notch's shoulders instead of being a slab stuck under the menu bar.
 ///
-/// Adapted from sk-ruban/notchi (MIT), which worked this out first.
+/// Built from four true circular arcs rather than approximated with quadratic curves: the two at
+/// the top sweep outward from the plate (concave), the two at the bottom sweep inward (convex).
+/// A concave corner of radius r at the top-left has its centre at (minX + r, minY) -- outside the
+/// filled area, which is what makes it cut in rather than round off.
+///
+/// Concave shoulders are how every notch-hugging UI on this platform is drawn, Apple's own
+/// included; only the construction here is ours.
 struct NotchShape: Shape {
     var topCornerRadius: CGFloat
     var bottomCornerRadius: CGFloat
@@ -191,23 +196,36 @@ struct NotchShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        let t = min(topCornerRadius, rect.width / 2)
-        let b = min(bottomCornerRadius, max(0, rect.width / 2 - t))
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + t, y: rect.minY + t),
-                       control: CGPoint(x: rect.minX + t, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.minX + t, y: rect.maxY - b))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + t + b, y: rect.maxY),
-                       control: CGPoint(x: rect.minX + t, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.maxX - t - b, y: rect.maxY))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX - t, y: rect.maxY - b),
-                       control: CGPoint(x: rect.maxX - t, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.maxX - t, y: rect.minY + t))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY),
-                       control: CGPoint(x: rect.maxX - t, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        return p
+        // Clamped so a narrow plate cannot produce crossing arcs: the two shoulders plus the two
+        // bottom corners have to fit across the width.
+        let top = max(0, min(topCornerRadius, rect.width / 2))
+        let bottom = max(0, min(bottomCornerRadius, max(0, rect.width / 2 - top), rect.height))
+
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+
+        // Left shoulder, concave: centre sits on the top edge, outside the fill.
+        // The clockwise flags below read backwards on purpose. Path's y axis points down, so the
+        // flag is the opposite of the direction the arc visually sweeps; rendered offscreen and
+        // checked, because reasoning about it gets you two white bites out of the shoulders.
+        path.addArc(center: CGPoint(x: rect.minX + top, y: rect.minY), radius: top,
+                    startAngle: .degrees(180), endAngle: .degrees(90), clockwise: false)
+        path.addLine(to: CGPoint(x: rect.minX + top, y: rect.maxY - bottom))
+        // Bottom-left, convex.
+        path.addArc(center: CGPoint(x: rect.minX + top + bottom, y: rect.maxY - bottom),
+                    radius: bottom,
+                    startAngle: .degrees(180), endAngle: .degrees(90), clockwise: true)
+        path.addLine(to: CGPoint(x: rect.maxX - top - bottom, y: rect.maxY))
+        // Bottom-right, convex.
+        path.addArc(center: CGPoint(x: rect.maxX - top - bottom, y: rect.maxY - bottom),
+                    radius: bottom,
+                    startAngle: .degrees(90), endAngle: .degrees(0), clockwise: true)
+        path.addLine(to: CGPoint(x: rect.maxX - top, y: rect.minY + top))
+        // Right shoulder, concave.
+        path.addArc(center: CGPoint(x: rect.maxX - top, y: rect.minY), radius: top,
+                    startAngle: .degrees(90), endAngle: .degrees(0), clockwise: false)
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -309,7 +327,8 @@ private struct HUDView: View {
                 Spacer(minLength: 0)
             } else {
                 Meter(level: state.micLevel)
-                Text(state.partialText.isEmpty ? "請開始說話…" : state.partialText)
+                Text(state.partialText.isEmpty
+                     ? String(localized: "Start speaking…") : state.partialText)
                     .font(Theme.caption)
                     .foregroundStyle(state.partialText.isEmpty ? Theme.textTertiary : Theme.textPrimary)
                     .lineLimit(1)
@@ -333,7 +352,9 @@ private struct ThinkingLabel: View {
     @State private var seconds = 0
 
     var body: some View {
-        Text(seconds < 2 ? "整理中…" : "整理中… \(seconds) 秒")
+        Text(seconds < 2
+             ? String(localized: "Cleaning up…")
+             : String(format: String(localized: "Cleaning up… %ds"), seconds))
             .font(Theme.caption)
             .foregroundStyle(color)
             .monospacedDigit()
@@ -374,12 +395,16 @@ struct OnboardingView: View {
 
     @State private var step = 0
 
-    private static let titles = ["麥克風", "輔助使用", "fn 鍵", "AI 供應商", "試講一句"]
+    private static var titles: [String] {
+        [String(localized: "Microphone"), String(localized: "Accessibility"),
+         String(localized: "The fn key"), String(localized: "AI provider"),
+         String(localized: "Try it out")]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
-                Text("第 \(step + 1) / 5 步")
+                Text("Step \(step + 1) of 5")
                     .font(Theme.caption)
                     .foregroundStyle(Theme.textTertiary)
                 Text(Self.titles[step])
@@ -409,11 +434,11 @@ struct OnboardingView: View {
                     }
                 }
                 Spacer()
-                if step > 0 { Button("上一步") { step -= 1 } }
+                if step > 0 { Button("Back") { step -= 1 } }
                 if step < 4 {
-                    Button("下一步") { step += 1 }.keyboardShortcut(.defaultAction)
+                    Button("Next") { step += 1 }.keyboardShortcut(.defaultAction)
                 } else {
-                    Button("完成") {
+                    Button("Done") {
                         UserDefaults.standard.set(true, forKey: Prefs.hasOnboarded)
                         state.needsOnboarding = false
                         dismiss()
@@ -433,9 +458,9 @@ private struct MicStep: View {
     @Bindable var state: AppState
 
     var body: some View {
-        StepBody(text: "OpenTalkType 需要麥克風才能聽你說話。辨識全部在這台 Mac 上完成，聲音不會離開電腦。") {
+        StepBody(text: String(localized: "OpenTalkType needs your microphone to hear you. Recognition runs entirely on this Mac, so your voice never leaves the machine.")) {
             HStack(spacing: Theme.Space.m) {
-                Button("允許使用麥克風") {
+                Button("Allow Microphone Access") {
                     Task {
                         _ = await Permissions.requestMic()
                         state.refreshPermissions()
@@ -445,7 +470,9 @@ private struct MicStep: View {
                     }
                 }
                 .disabled(state.micGranted)
-                StatusDot(ok: state.micGranted, text: state.micGranted ? "已授權" : "尚未授權")
+                StatusDot(ok: state.micGranted,
+                          text: state.micGranted
+                              ? String(localized: "Granted") : String(localized: "Not granted yet"))
             }
             if !state.modelStatus.isEmpty {
                 Text(state.modelStatus).font(Theme.caption).foregroundStyle(Theme.textSecondary)
@@ -458,17 +485,19 @@ private struct AXStep: View {
     @Bindable var state: AppState
 
     var body: some View {
-        StepBody(text: "「輔助使用」權限讓 OpenTalkType 可以偵測 fn 鍵，並把整理好的文字貼到你正在打字的位置。沒有它，文字只會留在剪貼簿。") {
+        StepBody(text: String(localized: "Accessibility is what lets OpenTalkType watch for the fn key and paste finished text straight into whatever you are typing in. Without it, the text only reaches the clipboard.")) {
             HStack(spacing: Theme.Space.m) {
-                Button("開啟輔助使用設定") {
+                Button("Open Accessibility Settings") {
                     Permissions.promptForAccessibility()
                     Permissions.openAccessibilitySettings()
                     state.armHotkeys()
                 }
-                Button("重新檢查") { state.refreshPermissions() }
-                StatusDot(ok: state.axTrusted, text: state.axTrusted ? "已授權" : "尚未授權")
+                Button("Check Again") { state.refreshPermissions() }
+                StatusDot(ok: state.axTrusted,
+                          text: state.axTrusted
+                              ? String(localized: "Granted") : String(localized: "Not granted yet"))
             }
-            Text("勾選之後回到這裡，狀態會自動變成已授權。")
+            Text("Come back here once you have checked the box; the status updates on its own.")
                 .font(Theme.caption).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -476,7 +505,7 @@ private struct AXStep: View {
 
 private struct FnStep: View {
     var body: some View {
-        StepBody(text: "三種模式都按住 fn（有些鍵盤標成 🌐）開始，放開就送出。") {
+        StepBody(text: String(localized: "Every mode starts the same way: hold fn, labeled Globe on some keyboards, and let go to send.")) {
             VStack(alignment: .leading, spacing: Theme.Space.m) {
                 ForEach(Mode.allCases) { mode in
                     HStack(spacing: Theme.Space.m) {
@@ -486,7 +515,7 @@ private struct FnStep: View {
                     }
                 }
             }
-            Text("如果按 fn 會跳出輸入法或表情符號面板，請到「系統設定 → 鍵盤 → 按下 🌐 鍵時」改成「不執行任何動作」。")
+            Text("If pressing fn brings up the input source or emoji picker, open System Settings → Keyboard, find \"Press Globe key to\" and set it to \"Do Nothing\".")
                 .font(Theme.caption)
                 .foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -496,7 +525,7 @@ private struct FnStep: View {
 
 private struct ProviderStep: View {
     var body: some View {
-        StepBody(text: "整理文字需要一個大型語言模型。金鑰存在 macOS 鑰匙圈，只會送到你選的供應商。") {
+        StepBody(text: String(localized: "Cleaning up text takes a large language model. Your key lives in the macOS Keychain and only ever goes to the provider you pick.")) {
             ProviderFields()
         }
     }
@@ -520,20 +549,21 @@ private struct TestStep: View {
     @FocusState private var pasteFocused: Bool
 
     var body: some View {
-        StepBody(text: "按下「開始說話」，說一句話，再按「停止」。這會真的跑一次完整流程：麥克風、辨識、AI 整理、自動貼上。") {
+        StepBody(text: String(localized: "Press Start Speaking, say a sentence, then press Stop. This runs the real thing end to end: microphone, recognition, AI cleanup and automatic paste.")) {
             HStack(spacing: Theme.Space.m) {
                 if recording {
-                    Button("停止") { Task { await end() } }.keyboardShortcut(.return, modifiers: [])
+                    Button("Stop") { Task { await end() } }.keyboardShortcut(.return, modifiers: [])
                 } else {
-                    Button("開始說話") { Task { await begin() } }
+                    Button("Start Speaking") { Task { await begin() } }
                 }
                 if recording {
-                    Text(state.partialText.isEmpty ? "聆聽中…" : state.partialText)
+                    Text(state.partialText.isEmpty
+                         ? String(localized: "Listening…") : state.partialText)
                         .font(Theme.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
             }
 
-            TextField("整理好的文字會貼進這裡", text: $pasted)
+            TextField("The finished text will be pasted here", text: $pasted)
                 .focused($pasteFocused)
                 .frame(width: 380)
 
@@ -542,7 +572,7 @@ private struct TestStep: View {
                     Image(systemName: stage.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(stage.ok ? Theme.success : Theme.danger)
                     Text(stage.name).font(Theme.body).foregroundStyle(Theme.textPrimary)
-                        .frame(width: 80, alignment: .leading)
+                        .frame(width: 110, alignment: .leading)
                     Text(stage.detail).font(Theme.caption).foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -558,12 +588,16 @@ private struct TestStep: View {
         stages = []
         pasted = ""
         state.refreshPermissions()
-        add("麥克風", state.micGranted, state.micGranted ? "已授權" : "尚未授權，請回到第 1 步")
+        add(String(localized: "Microphone"), state.micGranted,
+            state.micGranted
+                ? String(localized: "Granted")
+                : String(localized: "Not granted yet — go back to step 1"))
         guard state.micGranted, let speech = state.speech else { return }
         // AppState.phase is the app's only mutual exclusion over the one SpeechEngine. Drive it
         // from here too, or an fn press mid-test starts a second session on the same engine.
         guard state.phase == .idle else {
-            add("錄音", false, "正在進行另一次聽寫，放開 fn 之後再試一次")
+            add(String(localized: "Recording"), false,
+                String(localized: "Another dictation is running. Let go of fn and try again."))
             return
         }
         state.phase = .listening
@@ -572,7 +606,7 @@ private struct TestStep: View {
             recording = true
         } catch {
             state.phase = .idle
-            add("錄音", false, error.localizedDescription)
+            add(String(localized: "Recording"), false, error.localizedDescription)
         }
     }
 
@@ -582,16 +616,22 @@ private struct TestStep: View {
         state.phase = .thinking
         defer { state.phase = .idle }
         let raw = await speech.stop()
-        add("語音辨識", !raw.isEmpty, raw.isEmpty ? "沒有聽到任何內容，換個麥克風或說大聲一點" : raw)
+        add(String(localized: "Recognition"), !raw.isEmpty,
+            raw.isEmpty
+                ? String(localized: "Nothing came through. Try another microphone, or speak up.")
+                : raw)
         guard !raw.isEmpty else { return }
         do {
             let cleaned = try await state.process(raw, mode: .dictate, selection: nil)
-            add("AI 整理", true, cleaned)
+            add(String(localized: "AI cleanup"), true, cleaned)
             pasteFocused = true
             let ok = await insertText(cleaned)
-            add("自動貼上", ok, ok ? "已貼進上面的欄位" : "沒有輔助使用權限，文字留在剪貼簿")
+            add(String(localized: "Auto-paste"), ok,
+                ok
+                    ? String(localized: "Pasted into the field above")
+                    : String(localized: "No Accessibility permission, so the text is on the clipboard"))
         } catch {
-            add("AI 整理", false, error.localizedDescription)
+            add(String(localized: "AI cleanup"), false, error.localizedDescription)
         }
     }
 }
