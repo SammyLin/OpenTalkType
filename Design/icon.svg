@@ -1,0 +1,22 @@
+<!--
+  OpenTalkType app icon.
+  A solid speech bubble with a line of text and the caret still writing it: you talk,
+  it types. Solid rather than outlined because at 16 pt a stroke this thin turns to mush,
+  which the outlined draft did.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="plate" x1="230" y1="108" x2="794" y2="916" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#26364A"/><stop offset="1" stop-color="#111A27"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185.4" ry="185.4" fill="url(#plate)"/>
+  <!-- bubble, solid, with the tail at the bottom left -->
+  <path fill="#F2F0E9"
+        d="M296 288h432a76 76 0 0 1 76 76v272a76 76 0 0 1-76 76H470L344 828a16 16 0 0 1-26-12V712h-22a76 76 0 0 1-76-76V364a76 76 0 0 1 76-76z"/>
+  <!-- the words already written, punched out of the bubble -->
+  <rect x="344" y="426" width="212" height="46" rx="23" fill="#1A2536"/>
+  <rect x="344" y="546" width="132" height="46" rx="23" fill="#1A2536"/>
+  <!-- and the caret still going -->
+  <rect x="600" y="404" width="52" height="190" rx="26" fill="#3BC9C0"/>
+</svg>

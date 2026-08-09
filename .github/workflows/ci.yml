@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # macos-26 is the only image with an SDK new enough for this app: it targets macOS 26 and
+    # uses SpeechAnalyzer, which does not exist before it. macos-15 cannot compile this at all.
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project OpenTalkType.xcodeproj \
+            -scheme OpenTalkType \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # The whole test suite. It is pure logic by design: no window, no microphone, no network,
+      # no permission prompt, so it is the same run here as on a developer's machine. Exits
+      # non-zero on the first failing check.
+      - name: Self-test
+        run: |
+          APP=$(xcodebuild -project OpenTalkType.xcodeproj -scheme OpenTalkType \
+                  -configuration Debug -showBuildSettings 2>/dev/null \
+                | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')
+          "$APP/OpenTalkType.app/Contents/MacOS/OpenTalkType" --selftest
+
+      # A tool nobody can start is not shipped. Drives the real stdio server and fails if the
+      # handshake is wrong or if anything that is not JSON-RPC reaches stdout.
+      - name: MCP handshake
+        run: |
+          APP=$(xcodebuild -project OpenTalkType.xcodeproj -scheme OpenTalkType \
+                  -configuration Debug -showBuildSettings 2>/dev/null \
+                | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')
+          BIN="$APP/OpenTalkType.app/Contents/MacOS/OpenTalkType"
+          defaults write ai.3mi.opentalktype mcpEnabled -bool true
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | "$BIN" --mcp 2>/dev/null > /tmp/mcp.out
+          cat /tmp/mcp.out
+          python3 - <<'PY'
+          import json, sys
+          lines = [l for l in open("/tmp/mcp.out") if l.strip()]
+          assert len(lines) == 2, f"expected 2 replies, got {len(lines)}"
+          init, tools = (json.loads(l) for l in lines)          # any non-JSON line fails here
+          assert init["result"]["serverInfo"]["name"] == "opentalktype", init
+          names = {t["name"] for t in tools["result"]["tools"]}
+          assert {"opentalktype_clean_text", "opentalktype_list_modes"} <= names, names
+          print("MCP ok:", sorted(names))
+          PY

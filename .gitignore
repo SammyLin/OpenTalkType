@@ -1,0 +1,12 @@
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+build/
+.DS_Store
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+.build/
+*.moved-aside
+Design/.codex-log*.txt
+Design/svg2png
